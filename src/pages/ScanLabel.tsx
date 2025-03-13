@@ -4,6 +4,7 @@ import Layout from "@/components/Layout";
 import Header from "@/components/Header";
 import QRCodeScanner from "@/components/QRCodeScanner";
 import { motion } from "framer-motion";
+import { Card } from "@/components/ui/card";
 
 const ScanLabel = () => {
   return (
@@ -16,11 +17,11 @@ const ScanLabel = () => {
         animate={{ opacity: 1 }}
         transition={{ duration: 0.3 }}
       >
-        <div className="text-center space-y-2 mb-4">
-          <p className="text-muted-foreground">
+        <Card className="p-4 bg-secondary border-2 border-primary/30">
+          <p className="text-foreground text-lg font-medium text-center">
             Point your camera at a QR code to scan it
           </p>
-        </div>
+        </Card>
         
         <QRCodeScanner />
       </motion.div>
