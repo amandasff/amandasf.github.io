@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { QrReader } from 'react-qr-reader';
 import { Card } from '@/components/ui/card';
@@ -188,7 +187,6 @@ const QRCodeScanner: React.FC = () => {
                 position: 'relative', 
                 overflow: 'hidden'
               }}
-              videoRef={handleVideoRef}
               ViewFinder={() => (
                 <div className="absolute inset-0 border-4 border-primary opacity-70 rounded-lg" />
               )}

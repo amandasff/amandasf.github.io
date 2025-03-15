@@ -66,6 +66,24 @@ npm run preview
 yarn preview
 ```
 
+## Running in VSCode
+
+1. Open the project folder in VSCode
+2. Make sure you have the following extensions installed:
+   - ESLint
+   - Prettier
+   - Tailwind CSS IntelliSense
+   - TypeScript and JavaScript Language Features
+
+3. Open a terminal in VSCode (Terminal > New Terminal) and run:
+   ```
+   npm install
+   npm run dev
+   ```
+
+4. The development server will start and show you a local URL (usually http://localhost:5173)
+5. You can now open this URL in your browser or use the "Open in Browser" extension to open it directly from VSCode
+
 ## Accessing the Camera
 
 - When running locally, the application must be served over HTTPS or from localhost for camera access to work properly in most browsers.
@@ -74,4 +92,3 @@ yarn preview
 ## Offline Capabilities
 
 This application stores all data locally on your device and can function without an internet connection after the initial load.
-
