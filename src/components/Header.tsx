@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { useLocation } from 'react-router-dom';
-import { AnimatePresence, motion } from 'framer-motion';
+import { Motion, AnimatePresence, motion } from 'framer-motion';
 
 interface HeaderProps {
   title?: string;

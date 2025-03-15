@@ -1,94 +1,69 @@
+# Welcome to your Lovable project
 
-# Audio Labels Prototype
+## Project info
 
-A mobile web application that allows users to create QR codes with audio attachments. Users can record voice messages or enter text for text-to-speech conversion, generate QR codes linked to this audio content, and later scan these codes to play back the audio information.
+**URL**: https://lovable.dev/projects/59c2c605-21c9-4208-a3ea-4ccad46d13fb
+
+## How can I edit this code?
+
+There are several ways of editing your application.
+
+**Use Lovable**
+
+Simply visit the [Lovable Project](https://lovable.dev/projects/59c2c605-21c9-4208-a3ea-4ccad46d13fb) and start prompting.
+
+Changes made via Lovable will be committed automatically to this repo.
+
+**Use your preferred IDE**
+
+If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+
+The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+
+Follow these steps:
+
+```sh
+# Step 1: Clone the repository using the project's Git URL.
+git clone <YOUR_GIT_URL>
+
+# Step 2: Navigate to the project directory.
+cd <YOUR_PROJECT_NAME>
+
+# Step 3: Install the necessary dependencies.
+npm i
+
+# Step 4: Start the development server with auto-reloading and an instant preview.
+npm run dev
+```
+
+**Edit a file directly in GitHub**
+
+- Navigate to the desired file(s).
+- Click the "Edit" button (pencil icon) at the top right of the file view.
+- Make your changes and commit the changes.
+
+**Use GitHub Codespaces**
+
+- Navigate to the main page of your repository.
+- Click on the "Code" button (green button) near the top right.
+- Select the "Codespaces" tab.
+- Click on "New codespace" to launch a new Codespace environment.
+- Edit files directly within the Codespace and commit and push your changes once you're done.
 
 ## What technologies are used for this project?
 
-This project is built with:
+This project is built with .
 
 - Vite
 - TypeScript
 - React
 - shadcn-ui
 - Tailwind CSS
-- React Router DOM
-- Framer Motion
 
-## Running the project locally
+## How can I deploy this project?
 
-### Prerequisites
+Simply open [Lovable](https://lovable.dev/projects/59c2c605-21c9-4208-a3ea-4ccad46d13fb) and click on Share -> Publish.
 
-- Node.js (v16 or higher)
-- npm or yarn
+## I want to use a custom domain - is that possible?
 
-### Setup and Installation
-
-1. Clone the repository to your local machine:
-   ```
-   git clone <repository-url>
-   cd <project-directory>
-   ```
-
-2. Install the dependencies:
-   ```
-   npm install
-   # or if using yarn
-   yarn install
-   ```
-
-3. Start the development server:
-   ```
-   npm run dev
-   # or if using yarn
-   yarn dev
-   ```
-
-4. Open your browser and navigate to the URL shown in the terminal (typically http://localhost:5173)
-
-### Building for Production
-
-To create a production build:
-
-```
-npm run build
-# or if using yarn
-yarn build
-```
-
-The build output will be in the `dist` directory.
-
-To locally preview the production build:
-
-```
-npm run preview
-# or if using yarn
-yarn preview
-```
-
-## Running in VSCode
-
-1. Open the project folder in VSCode
-2. Make sure you have the following extensions installed:
-   - ESLint
-   - Prettier
-   - Tailwind CSS IntelliSense
-   - TypeScript and JavaScript Language Features
-
-3. Open a terminal in VSCode (Terminal > New Terminal) and run:
-   ```
-   npm install
-   npm run dev
-   ```
-
-4. The development server will start and show you a local URL (usually http://localhost:5173)
-5. You can now open this URL in your browser or use the "Open in Browser" extension to open it directly from VSCode
-
-## Accessing the Camera
-
-- When running locally, the application must be served over HTTPS or from localhost for camera access to work properly in most browsers.
-- On mobile devices, make sure to allow camera permissions when prompted.
-
-## Offline Capabilities
-
-This application stores all data locally on your device and can function without an internet connection after the initial load.
+We don't support custom domains (yet). If you want to deploy your project under your own domain then we recommend using Netlify. Visit our docs for more details: [Custom domains](https://docs.lovable.dev/tips-tricks/custom-domain/)

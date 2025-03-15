@@ -1,12 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { QrReader } from 'react-qr-reader';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader, Pause, Play, Volume2, VolumeX, ZoomIn, ZoomOut, Check, RefreshCw } from 'lucide-react';
+import { Loader, Pause, Play, Volume2, VolumeX } from 'lucide-react';
 import { getLabelById } from '@/utils/storage';
 import { playAudio, base64ToBlob, textToSpeech } from '@/utils/audio';
 import { announceToScreenReader, provideHapticFeedback } from '@/utils/accessibility';
-import { Slider } from '@/components/ui/slider';
 
 const QRCodeScanner: React.FC = () => {
   const [scanning, setScanning] = useState<boolean>(true);
@@ -16,8 +16,6 @@ const QRCodeScanner: React.FC = () => {
   const [labelName, setLabelName] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(false);
-  const [zoomLevel, setZoomLevel] = useState<number>(1);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
 
   // Reset state when starting a new scan
   const startNewScan = () => {
@@ -27,35 +25,6 @@ const QRCodeScanner: React.FC = () => {
     setIsPlaying(false);
     setScanning(true);
     announceToScreenReader('Scanner activated, ready to scan QR codes');
-  };
-
-  // Handle zoom level changes
-  const handleZoomChange = (value: number[]) => {
-    const newZoom = value[0];
-    setZoomLevel(newZoom);
-    
-    // Attempt to change video zoom if the browser supports it
-    if (videoRef.current) {
-      try {
-        // @ts-ignore - MediaTrackConstraints.advanced is not yet in TypeScript
-        const videoTrack = videoRef.current.srcObject?.getVideoTracks()[0];
-        if (videoTrack && 'applyConstraints' in videoTrack) {
-          const capabilities = videoTrack.getCapabilities?.();
-          if (capabilities && capabilities.zoom) {
-            const min = capabilities.zoom.min || 1;
-            const max = capabilities.zoom.max || 5;
-            const scaledZoom = min + (newZoom * (max - min));
-            videoTrack.applyConstraints({
-              advanced: [{ zoom: scaledZoom }]
-            }).catch(e => console.error('Could not apply zoom constraint', e));
-          }
-        }
-      } catch (err) {
-        console.error('Error adjusting camera zoom:', err);
-      }
-    }
-    
-    announceToScreenReader(`Zoom level set to ${newZoom}`, 'polite');
   };
 
   // Handle successful scan
@@ -84,13 +53,6 @@ const QRCodeScanner: React.FC = () => {
       setError('Could not read QR code data');
       setScanning(false);
       announceToScreenReader('Could not read QR code data', 'assertive');
-    }
-  };
-
-  // Save reference to video element for zoom control
-  const handleVideoRef = (node: HTMLVideoElement | null) => {
-    if (node) {
-      videoRef.current = node;
     }
   };
 
@@ -166,7 +128,7 @@ const QRCodeScanner: React.FC = () => {
 
   return (
     <div className="w-full max-w-sm mx-auto">
-      <Card className="overflow-hidden shadow-lg border-2 border-primary/30">
+      <Card className="overflow-hidden shadow-sm">
         {scanning ? (
           <div className="relative">
             <QrReader
@@ -175,105 +137,70 @@ const QRCodeScanner: React.FC = () => {
                   handleScan(result.getText());
                 }
               }}
-              constraints={{ 
-                facingMode: 'environment',
-                width: { min: 640, ideal: 1280 },
-                height: { min: 480, ideal: 720 }
-              }}
-              videoStyle={{ width: '100%', transform: `scale(${zoomLevel})` }}
-              containerStyle={{ width: '100%', overflow: 'hidden' }}
+              constraints={{ facingMode: 'environment' }}
+              videoStyle={{ width: '100%' }}
+              containerStyle={{ width: '100%' }}
               scanDelay={500}
-              videoContainerStyle={{ 
-                position: 'relative', 
-                overflow: 'hidden'
-              }}
               ViewFinder={() => (
-                <div className="absolute inset-0 border-4 border-primary opacity-70 rounded-lg" />
+                <div className="absolute inset-0 border-2 border-primary-500 opacity-70 rounded-lg" />
               )}
             />
-            
-            {/* Camera zoom controls */}
-            <div className="absolute bottom-4 left-0 right-0 flex flex-col items-center bg-black/30 backdrop-blur-sm p-2 rounded-md mx-4">
-              <div className="flex items-center justify-center w-full mb-1">
-                <ZoomOut className="h-5 w-5 text-white mr-2" />
-                <Slider
-                  value={[zoomLevel]}
-                  min={1}
-                  max={5}
-                  step={0.1}
-                  onValueChange={handleZoomChange}
-                  className="w-full h-4"
-                  aria-label="Zoom Level"
-                />
-                <ZoomIn className="h-5 w-5 text-white ml-2" />
-              </div>
-              <div className="text-white text-sm font-bold">
-                {zoomLevel.toFixed(1)}x
-              </div>
-            </div>
-            
-            <div className="absolute inset-0 border-[4px] border-white/70 rounded-lg pointer-events-none" />
+            <div className="absolute inset-0 border-[3px] border-white/70 rounded-lg pointer-events-none" />
           </div>
         ) : (
-          <div className="p-6 flex flex-col items-center justify-center min-h-[300px] space-y-6">
+          <div className="p-6 flex flex-col items-center justify-center min-h-[300px]">
             {isLoading ? (
               <div className="flex flex-col items-center justify-center gap-4">
-                <Loader className="h-16 w-16 text-primary animate-spin" />
-                <p className="text-center font-bold text-xl">Loading label data...</p>
+                <Loader className="h-12 w-12 text-primary animate-spin" />
+                <p className="text-center font-medium">Loading label data...</p>
               </div>
             ) : error ? (
-              <div className="text-center space-y-6">
-                <p className="text-destructive font-bold text-xl">{error}</p>
-                <Button onClick={startNewScan} size="lg" className="text-lg font-bold px-8 py-6 h-auto">
-                  <RefreshCw className="h-6 w-6 mr-2" /> Try Again
-                </Button>
+              <div className="text-center space-y-4">
+                <p className="text-destructive font-semibold">{error}</p>
+                <Button onClick={startNewScan}>Try Again</Button>
               </div>
             ) : (
-              <div className="text-center space-y-8 w-full">
-                <div className="space-y-3 bg-primary/10 p-4 rounded-xl">
-                  <div className="bg-primary/10 rounded-full p-2 inline-block mb-2">
-                    <Check className="h-8 w-8 text-primary" />
-                  </div>
-                  <h3 className="text-2xl font-bold">Label Found</h3>
+              <div className="text-center space-y-6">
+                <div className="space-y-2">
+                  <h3 className="text-xl font-semibold">Label Found</h3>
                   <p className="text-2xl font-bold text-primary">{labelName}</p>
                 </div>
                 
-                <div className="flex justify-center gap-6">
+                <div className="flex justify-center space-x-4">
                   {isPlaying ? (
                     <Button
                       variant="outline"
                       size="icon"
-                      className="h-16 w-16 rounded-full"
+                      className="h-12 w-12 rounded-full"
                       disabled
                     >
-                      <Pause className="h-8 w-8" />
+                      <Pause className="h-6 w-6" />
                     </Button>
                   ) : (
                     <Button
                       variant="outline"
                       size="icon"
-                      className="h-16 w-16 rounded-full border-2"
+                      className="h-12 w-12 rounded-full"
                       onClick={playLabelAgain}
                     >
-                      <Play className="h-8 w-8" />
+                      <Play className="h-6 w-6" />
                     </Button>
                   )}
                   
                   <Button
                     variant="outline"
                     size="icon"
-                    className="h-16 w-16 rounded-full border-2"
+                    className="h-12 w-12 rounded-full"
                     onClick={toggleMute}
                   >
-                    {isMuted ? <VolumeX className="h-8 w-8" /> : <Volume2 className="h-8 w-8" />}
+                    {isMuted ? <VolumeX className="h-6 w-6" /> : <Volume2 className="h-6 w-6" />}
                   </Button>
                 </div>
                 
                 <Button 
-                  className="w-full mt-6 text-lg font-bold py-6 h-auto" 
+                  className="w-full mt-4" 
                   onClick={startNewScan}
                 >
-                  <RefreshCw className="h-6 w-6 mr-2" />
                   Scan Another Code
                 </Button>
               </div>
