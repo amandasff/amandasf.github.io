@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import Layout from "@/components/Layout";
 import Header from "@/components/Header";
-import { PlusCircle, Search, LayoutList } from "lucide-react";
+import { PlusCircle, Search, LayoutList, FlowChart } from "lucide-react";
 import { motion } from "framer-motion";
 
 const Index = () => {
@@ -102,6 +102,24 @@ const Index = () => {
                 <div className="flex-1 text-left">
                   <h3 className="font-semibold text-lg">My Labels</h3>
                   <p className="text-sm text-muted-foreground">View and manage your saved labels</p>
+                </div>
+              </motion.div>
+            </Link>
+          </Card>
+          
+          <Card className="overflow-hidden">
+            <Link to="/flowchart" className="block">
+              <motion.div 
+                className="p-6 flex items-center gap-4"
+                whileHover={{ backgroundColor: 'rgba(0,0,0,0.02)' }}
+                transition={{ duration: 0.2 }}
+              >
+                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <FlowChart className="h-6 w-6 text-primary" />
+                </div>
+                <div className="flex-1 text-left">
+                  <h3 className="font-semibold text-lg">Flow Chart</h3>
+                  <p className="text-sm text-muted-foreground">View the app's flow chart diagram</p>
                 </div>
               </motion.div>
             </Link>
