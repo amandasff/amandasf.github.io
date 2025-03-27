@@ -1,5 +1,5 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -9,9 +9,10 @@ import { announceToScreenReader, provideHapticFeedback } from '@/utils/accessibi
 
 interface AudioRecorderProps {
   onAudioRecorded: (audioData: string) => void;
+  initialAudioData?: string | undefined;
 }
 
-const AudioRecorder: React.FC<AudioRecorderProps> = ({ onAudioRecorded }) => {
+const AudioRecorder: React.FC<AudioRecorderProps> = ({ onAudioRecorded, initialAudioData }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
@@ -20,6 +21,25 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onAudioRecorded }) => {
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const timerRef = useRef<number | null>(null);
+
+  // Initialize with initialAudioData if provided
+  useEffect(() => {
+    if (initialAudioData) {
+      // If we have initial audio data, we should set it so it can be played
+      const fetchAudioBlob = async () => {
+        try {
+          // Convert the base64 string back to a blob
+          const response = await fetch(initialAudioData);
+          const blob = await response.blob();
+          setAudioBlob(blob);
+        } catch (error) {
+          console.error('Error converting initialAudioData to blob:', error);
+        }
+      };
+      
+      fetchAudioBlob();
+    }
+  }, [initialAudioData]);
 
   // Start recording
   const handleStartRecording = async () => {
