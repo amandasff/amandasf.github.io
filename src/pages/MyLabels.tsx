@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -16,10 +17,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import Layout from "@/components/Layout";
 import Header from "@/components/Header";
+import QRCodeGenerator from "@/components/QRCodeGenerator";
 import { Label, getAllLabels, deleteLabel } from "@/utils/storage";
 import { playAudio, base64ToBlob, textToSpeech } from "@/utils/audio";
 import { announceToScreenReader } from "@/utils/accessibility";
-import { Trash2, Play, QrCode, Tag, Pencil, LayoutList } from "lucide-react";
+import { Trash2, Play, QrCode, Tag, Pencil, LayoutList, ChevronDown, ChevronUp } from "lucide-react";
 import { motion } from "framer-motion";
 
 const MyLabels = () => {
@@ -27,6 +29,7 @@ const MyLabels = () => {
   const [isPlaying, setIsPlaying] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [labelToDelete, setLabelToDelete] = useState<Label | null>(null);
+  const [expandedQR, setExpandedQR] = useState<string | null>(null);
 
   useEffect(() => {
     const storedLabels = getAllLabels();
@@ -65,6 +68,14 @@ const MyLabels = () => {
     }
     setDeleteDialogOpen(false);
     setLabelToDelete(null);
+  };
+
+  const toggleQRCode = (labelId: string) => {
+    if (expandedQR === labelId) {
+      setExpandedQR(null);
+    } else {
+      setExpandedQR(labelId);
+    }
   };
 
   const formatDate = (timestamp: number): string => {
@@ -183,21 +194,43 @@ const MyLabels = () => {
                                 </Link>
                               </Button>
                               
-                              {label.qrCode && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8"
-                                  asChild
-                                >
-                                  <Link to={`/create?edit=${label.id}`}>
-                                    <QrCode className="h-4 w-4" />
-                                    <span className="sr-only">Show QR Code</span>
-                                  </Link>
-                                </Button>
-                              )}
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => toggleQRCode(label.id)}
+                              >
+                                {expandedQR === label.id ? (
+                                  <ChevronUp className="h-4 w-4" />
+                                ) : (
+                                  <QrCode className="h-4 w-4" />
+                                )}
+                                <span className="sr-only">Show QR Code</span>
+                              </Button>
                             </div>
                           </div>
+                          
+                          {expandedQR === label.id && (
+                            <motion.div 
+                              className="mt-4"
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: "auto" }}
+                              exit={{ opacity: 0, height: 0 }}
+                              transition={{ duration: 0.3 }}
+                            >
+                              <div className="flex justify-center py-4">
+                                {label.qrCode ? (
+                                  <img 
+                                    src={label.qrCode} 
+                                    alt={`QR code for ${label.name}`}
+                                    className="w-48 h-48 object-contain"
+                                  />
+                                ) : (
+                                  <QRCodeGenerator label={label} size={160} />
+                                )}
+                              </div>
+                            </motion.div>
+                          )}
                         </div>
                       </Card>
                     </motion.div>
@@ -256,15 +289,39 @@ const MyLabels = () => {
                                 variant="ghost"
                                 size="icon"
                                 className="h-8 w-8"
-                                asChild
+                                onClick={() => toggleQRCode(label.id)}
                               >
-                                <Link to={`/create?edit=${label.id}`}>
+                                {expandedQR === label.id ? (
+                                  <ChevronUp className="h-4 w-4" />
+                                ) : (
                                   <QrCode className="h-4 w-4" />
-                                  <span className="sr-only">Show QR Code</span>
-                                </Link>
+                                )}
+                                <span className="sr-only">Show QR Code</span>
                               </Button>
                             </div>
                           </div>
+                          
+                          {expandedQR === label.id && (
+                            <motion.div 
+                              className="mt-4"
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: "auto" }}
+                              exit={{ opacity: 0, height: 0 }}
+                              transition={{ duration: 0.3 }}
+                            >
+                              <div className="flex justify-center py-4">
+                                {label.qrCode ? (
+                                  <img 
+                                    src={label.qrCode} 
+                                    alt={`QR code for ${label.name}`}
+                                    className="w-48 h-48 object-contain"
+                                  />
+                                ) : (
+                                  <QRCodeGenerator label={label} size={160} />
+                                )}
+                              </div>
+                            </motion.div>
+                          )}
                         </div>
                       </Card>
                     </motion.div>
