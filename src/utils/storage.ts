@@ -8,53 +8,10 @@ export interface Label {
   audioData?: string; // Base64 encoded audio
   createdAt: number;
   qrCode?: string; // Base64 encoded QR code
-  isPremade?: boolean; // Flag to identify premade labels
 }
 
 // Prefix for storage keys
 const STORAGE_PREFIX = 'audio-labels-';
-
-// Premade labels
-export const PREMADE_LABELS: Label[] = [
-  {
-    id: 'premade-1',
-    name: 'Medication',
-    content: 'This is your daily medication. Take as prescribed.',
-    createdAt: Date.now(),
-    isPremade: true
-  },
-  {
-    id: 'premade-2',
-    name: 'Food Item',
-    content: 'This is a food item. Check expiration date before consuming.',
-    createdAt: Date.now(),
-    isPremade: true
-  },
-  {
-    id: 'premade-3',
-    name: 'Electronics',
-    content: 'This is an electronic device. Handle with care.',
-    createdAt: Date.now(),
-    isPremade: true
-  },
-  {
-    id: 'premade-4',
-    name: 'Clothing',
-    content: 'This is a clothing item. Wash according to instructions.',
-    createdAt: Date.now(),
-    isPremade: true
-  },
-];
-
-// Initialize premade labels if not already saved
-export const initPremadeLabels = (): void => {
-  PREMADE_LABELS.forEach(label => {
-    const existing = getLabelById(label.id);
-    if (!existing) {
-      saveLabel(label);
-    }
-  });
-};
 
 // Get all labels
 export const getAllLabels = (): Label[] => {
@@ -72,11 +29,6 @@ export const getAllLabels = (): Label[] => {
     console.error('Error getting labels:', error);
     return [];
   }
-};
-
-// Get premade labels
-export const getPremadeLabels = (): Label[] => {
-  return getAllLabels().filter(label => label.isPremade);
 };
 
 // Get a label by ID

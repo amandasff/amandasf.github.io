@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -21,24 +22,9 @@ const CreateLabel = () => {
   const [label, setLabel] = useState<Label | null>(null);
   
   const navigate = useNavigate();
-  const location = useLocation();
   const { toast } = useToast();
 
-  useEffect(() => {
-    const state = location.state as { premadeLabel?: Label } | null;
-    if (state?.premadeLabel) {
-      const premadeLabel = state.premadeLabel;
-      setName(premadeLabel.name);
-      setText(premadeLabel.content);
-      setActiveTab("text");
-      
-      toast({
-        title: "Premade label loaded",
-        description: `Edit as needed and create your label.`,
-      });
-    }
-  }, [location.state, toast]);
-
+  // Handle creating the label
   const handleCreateLabel = () => {
     if (!name.trim()) {
       toast({
@@ -70,6 +56,7 @@ const CreateLabel = () => {
       return;
     }
     
+    // Create new label
     const newLabel: Label = {
       id: generateId(),
       name: name.trim(),
@@ -78,8 +65,10 @@ const CreateLabel = () => {
       createdAt: Date.now(),
     };
     
+    // Save label
     saveLabel(newLabel);
     
+    // Update state
     setLabel(newLabel);
     
     toast({
@@ -89,14 +78,17 @@ const CreateLabel = () => {
     announceToScreenReader("Label created successfully");
   };
 
+  // Handle audio recorded
   const handleAudioRecorded = (audioData: string) => {
     setAudioData(audioData);
   };
 
+  // Handle text changed
   const handleTextChanged = (text: string) => {
     setText(text);
   };
 
+  // Handle viewing all labels
   const handleViewAllLabels = () => {
     navigate("/labels");
   };
