@@ -8,10 +8,60 @@ export interface Label {
   audioData?: string; // Base64 encoded audio
   createdAt: number;
   qrCode?: string; // Base64 encoded QR code
+  isPremade?: boolean; // Flag to identify pre-made labels
 }
 
 // Prefix for storage keys
 const STORAGE_PREFIX = 'audio-labels-';
+
+// Pre-made labels with fixed IDs
+export const PREMADE_LABELS: Label[] = [
+  {
+    id: 'premade-1',
+    name: 'Medicine Cabinet',
+    content: 'Medicine Cabinet - Contains medications and first aid supplies',
+    createdAt: Date.now(),
+    isPremade: true
+  },
+  {
+    id: 'premade-2',
+    name: 'Kitchen Pantry',
+    content: 'Kitchen Pantry - Stores dry goods and non-perishable food items',
+    createdAt: Date.now(),
+    isPremade: true
+  },
+  {
+    id: 'premade-3',
+    name: 'Important Documents',
+    content: 'Important Documents - Contains passport, birth certificate, and other official papers',
+    createdAt: Date.now(),
+    isPremade: true
+  },
+  {
+    id: 'premade-4',
+    name: 'Emergency Kit',
+    content: 'Emergency Kit - Contains flashlight, batteries, and other emergency supplies',
+    createdAt: Date.now(),
+    isPremade: true
+  },
+  {
+    id: 'premade-5',
+    name: 'Cleaning Supplies',
+    content: 'Cleaning Supplies - Contains household cleaners and supplies',
+    createdAt: Date.now(),
+    isPremade: true
+  }
+];
+
+// Initialize pre-made labels if they don't exist
+export const initializePremadeLabels = (): void => {
+  PREMADE_LABELS.forEach(label => {
+    const existingLabel = getLabelById(label.id);
+    if (!existingLabel) {
+      saveLabel(label);
+    }
+  });
+};
 
 // Get all labels
 export const getAllLabels = (): Label[] => {
@@ -29,6 +79,11 @@ export const getAllLabels = (): Label[] => {
     console.error('Error getting labels:', error);
     return [];
   }
+};
+
+// Get pre-made labels only
+export const getPremadeLabels = (): Label[] => {
+  return getAllLabels().filter(label => label.isPremade);
 };
 
 // Get a label by ID

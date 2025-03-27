@@ -1,14 +1,24 @@
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import Layout from "@/components/Layout";
 import Header from "@/components/Header";
-import { PlusCircle, Search, LayoutList } from "lucide-react";
+import { PlusCircle, Search, LayoutList, Tag } from "lucide-react";
 import { motion } from "framer-motion";
+import { Label, getPremadeLabels } from "@/utils/storage";
 
 const Index = () => {
+  const [premadeLabels, setPremadeLabels] = useState<Label[]>([]);
+
+  useEffect(() => {
+    // Get pre-made labels
+    const labels = getPremadeLabels();
+    setPremadeLabels(labels);
+  }, []);
+
   return (
     <Layout>
       <Header />
@@ -107,6 +117,33 @@ const Index = () => {
             </Link>
           </Card>
         </div>
+        
+        {premadeLabels.length > 0 && (
+          <div className="w-full max-w-sm mt-8">
+            <div className="flex items-center gap-2 mb-4">
+              <Tag className="h-4 w-4 text-primary" />
+              <h3 className="font-semibold">Pre-made Labels</h3>
+            </div>
+            <Card className="overflow-hidden">
+              <div className="p-4 space-y-2">
+                {premadeLabels.map((label, index) => (
+                  <React.Fragment key={label.id}>
+                    <Link 
+                      to={`/create?edit=${label.id}`}
+                      className="block hover:bg-muted/30 rounded p-2 transition-colors"
+                    >
+                      <div className="flex justify-between items-center">
+                        <span className="font-medium">{label.name}</span>
+                        <span className="text-xs text-muted-foreground">{`#${label.id}`}</span>
+                      </div>
+                    </Link>
+                    {index < premadeLabels.length - 1 && <Separator className="my-1" />}
+                  </React.Fragment>
+                ))}
+              </div>
+            </Card>
+          </div>
+        )}
       </motion.div>
     </Layout>
   );

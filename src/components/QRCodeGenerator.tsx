@@ -1,11 +1,11 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import QRCode from 'qrcode';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Download, RefreshCw } from 'lucide-react';
-import { Label } from '@/utils/storage';
+import { Label, saveLabel } from '@/utils/storage';
 import { announceToScreenReader } from '@/utils/accessibility';
 
 interface QRCodeGeneratorProps {
@@ -43,6 +43,13 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
       });
       
       setQrCodeUrl(qrCodeDataUrl);
+      
+      // Save the QR code to the label if it doesn't have one
+      if (!label.qrCode) {
+        label.qrCode = qrCodeDataUrl;
+        saveLabel(label);
+      }
+      
       announceToScreenReader('QR code generated');
     } catch (err) {
       console.error('Error generating QR code:', err);
@@ -54,8 +61,13 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
   };
 
   // Generate QR code on component mount
-  React.useEffect(() => {
-    generateQRCode();
+  useEffect(() => {
+    if (label.qrCode) {
+      setQrCodeUrl(label.qrCode);
+      setIsLoading(false);
+    } else {
+      generateQRCode();
+    }
   }, [label.id]);
 
   // Function to download the QR code
@@ -64,7 +76,7 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
     
     const link = document.createElement('a');
     link.href = qrCodeUrl;
-    link.download = `qr-code-${label.name.replace(/\s+/g, '-').toLowerCase()}.png`;
+    link.download = `qr-code-${label.id}-${label.name.replace(/\s+/g, '-').toLowerCase()}.png`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -98,6 +110,13 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
           />
         )}
       </div>
+      
+      {label.isPremade && (
+        <div className="mb-4 text-center text-xs text-muted-foreground">
+          <p className="font-medium">Pre-made Label ID: {label.id}</p>
+          <p>This QR code has a fixed ID and will always work with this label.</p>
+        </div>
+      )}
       
       <div className="flex gap-3 w-full">
         <Button
