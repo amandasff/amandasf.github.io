@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -20,7 +19,7 @@ import Header from "@/components/Header";
 import { Label, getAllLabels, deleteLabel } from "@/utils/storage";
 import { playAudio, base64ToBlob, textToSpeech } from "@/utils/audio";
 import { announceToScreenReader } from "@/utils/accessibility";
-import { Trash2, Play, QrCode, Tag, Pencil } from "lucide-react";
+import { Trash2, Play, QrCode, Tag, Pencil, LayoutList } from "lucide-react";
 import { motion } from "framer-motion";
 
 const MyLabels = () => {
@@ -29,23 +28,19 @@ const MyLabels = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [labelToDelete, setLabelToDelete] = useState<Label | null>(null);
 
-  // Load labels from storage
   useEffect(() => {
     const storedLabels = getAllLabels();
     setLabels(storedLabels);
   }, []);
 
-  // Play a label
   const playLabel = async (label: Label) => {
     try {
       setIsPlaying(label.id);
       
       if (label.audioData) {
-        // Play recorded audio
         const audioBlob = base64ToBlob(label.audioData);
         await playAudio(audioBlob);
       } else if (label.content) {
-        // Use text-to-speech
         await textToSpeech(label.content);
       }
       
@@ -57,7 +52,6 @@ const MyLabels = () => {
     }
   };
 
-  // Handle label deletion
   const handleDeleteClick = (label: Label) => {
     setLabelToDelete(label);
     setDeleteDialogOpen(true);
@@ -73,7 +67,6 @@ const MyLabels = () => {
     setLabelToDelete(null);
   };
 
-  // Format date
   const formatDate = (timestamp: number): string => {
     const date = new Date(timestamp);
     return date.toLocaleDateString(undefined, {
@@ -83,7 +76,6 @@ const MyLabels = () => {
     });
   };
 
-  // Group labels by type (pre-made and custom)
   const premadeLabels = labels.filter(label => label.isPremade);
   const customLabels = labels.filter(label => !label.isPremade);
 
