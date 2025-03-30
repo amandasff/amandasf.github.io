@@ -31,7 +31,7 @@ export const stopRecording = (mediaRecorder: MediaRecorder): Promise<Blob> => {
     });
 
     mediaRecorder.addEventListener('stop', () => {
-      const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+      const audioBlob = new Blob(audioChunks, { type: 'audio/mpeg' }); // Change to more widely supported format
       resolve(audioBlob);
     });
 
@@ -44,12 +44,29 @@ export const stopRecording = (mediaRecorder: MediaRecorder): Promise<Blob> => {
   });
 };
 
-// Function to play audio from blob
+// Function to play audio from blob - updated for better mobile support
 export const playAudio = (audioBlob: Blob): Promise<void> => {
   return new Promise((resolve, reject) => {
     try {
       const audioUrl = URL.createObjectURL(audioBlob);
-      const audio = new Audio(audioUrl);
+      const audio = new Audio();
+      
+      // Set up event listeners before setting the source
+      audio.oncanplaythrough = () => {
+        // Ensure we're good to play
+        const playPromise = audio.play();
+        
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => {
+              console.log('Audio playback started successfully');
+            })
+            .catch(err => {
+              console.error('Playback failed:', err);
+              reject(err);
+            });
+        }
+      };
       
       audio.onended = () => {
         URL.revokeObjectURL(audioUrl);
@@ -57,33 +74,64 @@ export const playAudio = (audioBlob: Blob): Promise<void> => {
       };
       
       audio.onerror = (error) => {
+        console.error('Audio error:', error);
         URL.revokeObjectURL(audioUrl);
         reject(error);
       };
       
-      audio.play();
+      // Mobile devices often require user interaction before playing audio
+      // We're already handling this by having a button click trigger this function
+      
+      // Set the source after setting up event listeners
+      audio.src = audioUrl;
+      audio.load(); // Explicitly load the audio
     } catch (error) {
+      console.error('Error in playAudio:', error);
       reject(error);
     }
   });
 };
 
-// Function to convert text to speech
+// Function to convert text to speech with better mobile support
 export const textToSpeech = (text: string): Promise<SpeechSynthesisUtterance> => {
   return new Promise((resolve, reject) => {
     try {
+      // Cancel any ongoing speech synthesis
+      if (speechSynthesis.speaking) {
+        speechSynthesis.cancel();
+      }
+      
       const utterance = new SpeechSynthesisUtterance(text);
+      
+      // Set a voice if available to improve consistency
+      const voices = speechSynthesis.getVoices();
+      if (voices.length > 0) {
+        // Try to find a native voice or use the first one
+        const englishVoice = voices.find(voice => 
+          voice.lang.includes('en') && voice.localService
+        ) || voices[0];
+        
+        if (englishVoice) {
+          utterance.voice = englishVoice;
+        }
+      }
+      
+      utterance.rate = 0.9; // Slightly slower for better clarity
+      utterance.pitch = 1.0;
+      utterance.volume = 1.0;
       
       utterance.onend = () => {
         resolve(utterance);
       };
       
       utterance.onerror = (error) => {
+        console.error('Speech synthesis error:', error);
         reject(error);
       };
       
       speechSynthesis.speak(utterance);
     } catch (error) {
+      console.error('Text to speech error:', error);
       reject(error);
     }
   });
@@ -97,20 +145,46 @@ export const blobToBase64 = (blob: Blob): Promise<string> => {
       const base64String = reader.result as string;
       resolve(base64String.split(',')[1]); // Remove the data URL prefix
     };
-    reader.onerror = reject;
+    reader.onerror = (error) => {
+      console.error('Blob to base64 error:', error);
+      reject(error);
+    };
     reader.readAsDataURL(blob);
   });
 };
 
-// Function to convert base64 to audio blob
-export const base64ToBlob = (base64: string, type = 'audio/wav'): Blob => {
-  const binary = atob(base64);
-  const arrayBuffer = new ArrayBuffer(binary.length);
-  const uint8Array = new Uint8Array(arrayBuffer);
-  
-  for (let i = 0; i < binary.length; i++) {
-    uint8Array[i] = binary.charCodeAt(i);
+// Function to convert base64 to audio blob - updated for better compatibility
+export const base64ToBlob = (base64: string, type = 'audio/mpeg'): Blob => {
+  try {
+    const binary = atob(base64);
+    const arrayBuffer = new ArrayBuffer(binary.length);
+    const uint8Array = new Uint8Array(arrayBuffer);
+    
+    for (let i = 0; i < binary.length; i++) {
+      uint8Array[i] = binary.charCodeAt(i);
+    }
+    
+    return new Blob([uint8Array], { type });
+  } catch (error) {
+    console.error('Base64 to blob error:', error);
+    throw error;
   }
-  
-  return new Blob([uint8Array], { type });
+};
+
+// Force voices to load - helps with mobile device voice selection
+export const preloadVoices = (): Promise<void> => {
+  return new Promise((resolve) => {
+    if (typeof speechSynthesis !== 'undefined') {
+      speechSynthesis.onvoiceschanged = () => {
+        resolve();
+      };
+      // Trigger voice loading
+      speechSynthesis.getVoices();
+      
+      // Fallback if onvoiceschanged doesn't fire
+      setTimeout(resolve, 1000);
+    } else {
+      resolve();
+    }
+  });
 };

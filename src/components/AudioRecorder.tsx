@@ -6,6 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { Mic, Square, Play, Loader2 } from 'lucide-react';
 import { startRecording, stopRecording, playAudio, blobToBase64 } from '@/utils/audio';
 import { announceToScreenReader, provideHapticFeedback } from '@/utils/accessibility';
+import { useToast } from '@/components/ui/use-toast';
 
 interface AudioRecorderProps {
   onAudioRecorded: (audioData: string) => void;
@@ -18,28 +19,47 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onAudioRecorded, initialA
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const { toast } = useToast();
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const timerRef = useRef<number | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Initialize with initialAudioData if provided
   useEffect(() => {
     if (initialAudioData) {
-      // If we have initial audio data, we should set it so it can be played
-      const fetchAudioBlob = async () => {
-        try {
-          // Convert the base64 string back to a blob
-          const response = await fetch(initialAudioData);
-          const blob = await response.blob();
-          setAudioBlob(blob);
-        } catch (error) {
-          console.error('Error converting initialAudioData to blob:', error);
-        }
-      };
-      
-      fetchAudioBlob();
+      try {
+        // Create a data URL from the base64 string
+        const dataUrl = `data:audio/mpeg;base64,${initialAudioData}`;
+        
+        // Fetch the data and convert to blob
+        fetch(dataUrl)
+          .then(response => response.blob())
+          .then(blob => {
+            setAudioBlob(blob);
+            console.log('Successfully loaded initial audio data');
+          })
+          .catch(error => {
+            console.error('Error converting initialAudioData to blob:', error);
+          });
+      } catch (error) {
+        console.error('Error processing initialAudioData:', error);
+      }
     }
   }, [initialAudioData]);
+
+  // Create audio element for playback
+  useEffect(() => {
+    audioRef.current = new Audio();
+    
+    return () => {
+      // Cleanup
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+      }
+    };
+  }, []);
 
   // Start recording
   const handleStartRecording = async () => {
@@ -66,6 +86,11 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onAudioRecorded, initialA
       announceToScreenReader('Recording started');
     } catch (error) {
       console.error('Error starting recording:', error);
+      toast({
+        title: "Recording Error",
+        description: "Could not access microphone. Please check permissions.",
+        variant: "destructive"
+      });
       announceToScreenReader('Could not start recording', 'assertive');
     } finally {
       setIsProcessing(false);
@@ -100,13 +125,18 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onAudioRecorded, initialA
       announceToScreenReader('Recording finished');
     } catch (error) {
       console.error('Error stopping recording:', error);
+      toast({
+        title: "Recording Error",
+        description: "Failed to save recording.",
+        variant: "destructive"
+      });
       announceToScreenReader('Error stopping recording', 'assertive');
     } finally {
       setIsProcessing(false);
     }
   };
 
-  // Play recorded audio
+  // Play recorded audio with improved mobile support
   const handlePlayRecording = async () => {
     if (!audioBlob) return;
     
@@ -114,11 +144,58 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onAudioRecorded, initialA
       setIsPlaying(true);
       announceToScreenReader('Playing recording');
       
-      await playAudio(audioBlob);
+      console.log('Attempting to play audio blob:', audioBlob.type, audioBlob.size);
       
-      setIsPlaying(false);
+      // Create new URL for the blob
+      const audioUrl = URL.createObjectURL(audioBlob);
+      
+      if (audioRef.current) {
+        // Set up event handlers for this play attempt
+        const audio = audioRef.current;
+        
+        const playPromise = new Promise<void>((resolve, reject) => {
+          audio.onended = () => {
+            console.log('Audio playback ended');
+            resolve();
+          };
+          
+          audio.onerror = (e) => {
+            console.error('Audio playback error:', e);
+            reject(e);
+          };
+          
+          // Set source and attempt to play
+          audio.src = audioUrl;
+          audio.load();
+          
+          // Mobile browsers require user interaction
+          const playAttempt = audio.play();
+          
+          if (playAttempt !== undefined) {
+            playAttempt
+              .then(() => console.log('Playback started'))
+              .catch(e => {
+                console.error('Playback failed to start:', e);
+                reject(e);
+              });
+          }
+        });
+        
+        await playPromise;
+        
+        // Clean up
+        URL.revokeObjectURL(audioUrl);
+        setIsPlaying(false);
+      } else {
+        throw new Error('Audio element not available');
+      }
     } catch (error) {
       console.error('Error playing recording:', error);
+      toast({
+        title: "Playback Error",
+        description: "Could not play recording. Try again or re-record.",
+        variant: "destructive"
+      });
       announceToScreenReader('Could not play recording', 'assertive');
       setIsPlaying(false);
     }
