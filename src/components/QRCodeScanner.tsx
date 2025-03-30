@@ -4,8 +4,9 @@ import { QrReader } from 'react-qr-reader';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader, Pause, Play, Volume2, VolumeX } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 import { getLabelById } from '@/utils/storage';
-import { playAudio, base64ToBlob, textToSpeech } from '@/utils/audio';
+import { playAudio, base64ToBlob, textToSpeech, checkAudioCompatibility } from '@/utils/audio';
 import { announceToScreenReader, provideHapticFeedback } from '@/utils/accessibility';
 
 const QRCodeScanner: React.FC = () => {
@@ -16,6 +17,19 @@ const QRCodeScanner: React.FC = () => {
   const [labelName, setLabelName] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(false);
+  const { toast } = useToast();
+
+  // Check audio compatibility on mount
+  useEffect(() => {
+    const { supported, issues } = checkAudioCompatibility();
+    if (!supported) {
+      toast({
+        title: "Audio compatibility issues",
+        description: issues.join(', '),
+        variant: "destructive",
+      });
+    }
+  }, []);
 
   // Reset state when starting a new scan
   const startNewScan = () => {
@@ -33,7 +47,22 @@ const QRCodeScanner: React.FC = () => {
     
     // Parse the data from the QR code
     try {
-      const parsedData = JSON.parse(data);
+      console.log("QR code data received:", data);
+      let parsedData;
+      
+      try {
+        parsedData = JSON.parse(data);
+      } catch (parseErr) {
+        console.error("Failed to parse as JSON, trying alternative format");
+        
+        // Handle potential string format differences
+        const match = data.match(/labelId[":=\s]+([^",}\s]+)/i);
+        if (match && match[1]) {
+          parsedData = { labelId: match[1] };
+        } else {
+          throw new Error("Could not extract labelId");
+        }
+      }
       
       if (!parsedData.labelId) {
         setError('Invalid QR code format');
@@ -42,6 +71,7 @@ const QRCodeScanner: React.FC = () => {
         return;
       }
       
+      console.log("Parsed label ID:", parsedData.labelId);
       setScanResult(parsedData.labelId);
       setScanning(false);
       provideHapticFeedback();
@@ -63,6 +93,7 @@ const QRCodeScanner: React.FC = () => {
       
       const label = getLabelById(labelId);
       if (!label) {
+        console.error(`Label not found with ID: ${labelId}`);
         setError('Label not found');
         announceToScreenReader('Label not found', 'assertive');
         return;
@@ -70,17 +101,32 @@ const QRCodeScanner: React.FC = () => {
       
       setLabelName(label.name);
       announceToScreenReader(`Found label: ${label.name}`);
+      toast({
+        title: "Label found",
+        description: label.name,
+      });
       
       if (!isMuted) {
         setIsPlaying(true);
         
-        if (label.audioData) {
-          // Play recorded audio
-          const audioBlob = base64ToBlob(label.audioData);
-          await playAudio(audioBlob);
-        } else if (label.content) {
-          // Use text-to-speech
-          await textToSpeech(label.content);
+        try {
+          if (label.audioData) {
+            // Play recorded audio
+            console.log("Playing recorded audio for label:", label.name);
+            const audioBlob = base64ToBlob(label.audioData);
+            await playAudio(audioBlob);
+          } else if (label.content) {
+            // Use text-to-speech
+            console.log("Using text-to-speech for label:", label.name);
+            await textToSpeech(label.content);
+          }
+        } catch (audioErr) {
+          console.error("Audio playback error:", audioErr);
+          toast({
+            title: "Playback issue",
+            description: "Could not play audio. Try tapping play button.",
+            variant: "destructive",
+          });
         }
         
         setIsPlaying(false);
@@ -111,7 +157,9 @@ const QRCodeScanner: React.FC = () => {
   // Play the label again
   const playLabelAgain = async () => {
     if (scanResult) {
+      setIsPlaying(true);
       await fetchAndPlayLabel(scanResult);
+      setIsPlaying(false);
     }
   };
 

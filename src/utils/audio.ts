@@ -31,7 +31,7 @@ export const stopRecording = (mediaRecorder: MediaRecorder): Promise<Blob> => {
     });
 
     mediaRecorder.addEventListener('stop', () => {
-      const audioBlob = new Blob(audioChunks, { type: 'audio/mpeg' }); // Change to more widely supported format
+      const audioBlob = new Blob(audioChunks, { type: 'audio/mpeg' }); // More widely supported format
       resolve(audioBlob);
     });
 
@@ -44,47 +44,60 @@ export const stopRecording = (mediaRecorder: MediaRecorder): Promise<Blob> => {
   });
 };
 
-// Function to play audio from blob - updated for better mobile support
+// Function to play audio from blob - improved for more reliable mobile playback
 export const playAudio = (audioBlob: Blob): Promise<void> => {
   return new Promise((resolve, reject) => {
     try {
+      // Create a URL for the blob
       const audioUrl = URL.createObjectURL(audioBlob);
+      
+      // Create an audio element specifically for this playback
       const audio = new Audio();
       
-      // Set up event listeners before setting the source
-      audio.oncanplaythrough = () => {
-        // Ensure we're good to play
+      // Set up event listeners
+      audio.addEventListener('canplaythrough', () => {
         const playPromise = audio.play();
         
         if (playPromise !== undefined) {
           playPromise
             .then(() => {
-              console.log('Audio playback started successfully');
+              console.log('Audio playback started successfully on mobile');
             })
             .catch(err => {
-              console.error('Playback failed:', err);
-              reject(err);
+              console.error('Mobile playback failed:', err);
+              reject(new Error(`Playback error: ${err.message}`));
             });
         }
-      };
+      }, { once: true });
       
-      audio.onended = () => {
+      audio.addEventListener('ended', () => {
+        console.log('Audio playback ended');
         URL.revokeObjectURL(audioUrl);
         resolve();
-      };
+      }, { once: true });
       
-      audio.onerror = (error) => {
-        console.error('Audio error:', error);
+      audio.addEventListener('error', (error) => {
+        console.error('Audio playback error:', error);
         URL.revokeObjectURL(audioUrl);
-        reject(error);
-      };
+        reject(new Error(`Audio error: ${error}`));
+      }, { once: true });
       
-      // Mobile devices often require user interaction before playing audio
-      // We're already handling this by having a button click trigger this function
-      
-      // Set the source after setting up event listeners
+      // Load and play the audio
       audio.src = audioUrl;
-      audio.load(); // Explicitly load the audio
+      audio.load();
+      
+      // Additional mobile support
+      document.body.appendChild(audio);
+      
+      // Set a timeout to clean up in case events don't fire
+      setTimeout(() => {
+        if (document.body.contains(audio)) {
+          document.body.removeChild(audio);
+          URL.revokeObjectURL(audioUrl);
+          resolve();
+        }
+      }, 10000); // 10 second timeout
+      
     } catch (error) {
       console.error('Error in playAudio:', error);
       reject(error);
@@ -92,7 +105,7 @@ export const playAudio = (audioBlob: Blob): Promise<void> => {
   });
 };
 
-// Function to convert text to speech with better mobile support
+// Function to convert text to speech with enhanced mobile support
 export const textToSpeech = (text: string): Promise<SpeechSynthesisUtterance> => {
   return new Promise((resolve, reject) => {
     try {
@@ -128,6 +141,14 @@ export const textToSpeech = (text: string): Promise<SpeechSynthesisUtterance> =>
         console.error('Speech synthesis error:', error);
         reject(error);
       };
+      
+      // Add a manual timeout in case events don't fire correctly
+      setTimeout(() => {
+        if (speechSynthesis.speaking) {
+          speechSynthesis.cancel();
+          resolve(utterance);
+        }
+      }, 10000);
       
       speechSynthesis.speak(utterance);
     } catch (error) {
@@ -175,9 +196,18 @@ export const base64ToBlob = (base64: string, type = 'audio/mpeg'): Blob => {
 export const preloadVoices = (): Promise<void> => {
   return new Promise((resolve) => {
     if (typeof speechSynthesis !== 'undefined') {
+      // Try to load voices synchronously first
+      const voices = speechSynthesis.getVoices();
+      if (voices.length > 0) {
+        resolve();
+        return;
+      }
+      
+      // If no voices available, try the async approach
       speechSynthesis.onvoiceschanged = () => {
         resolve();
       };
+      
       // Trigger voice loading
       speechSynthesis.getVoices();
       
@@ -187,4 +217,36 @@ export const preloadVoices = (): Promise<void> => {
       resolve();
     }
   });
+};
+
+// Helper function to check audio compatibility
+export const checkAudioCompatibility = (): {supported: boolean, issues: string[]} => {
+  const issues: string[] = [];
+  let supported = true;
+  
+  // Check for basic Audio support
+  if (typeof Audio === 'undefined') {
+    issues.push('Audio API not supported');
+    supported = false;
+  }
+  
+  // Check for MediaRecorder support
+  if (typeof MediaRecorder === 'undefined') {
+    issues.push('MediaRecorder not supported');
+    supported = false;
+  }
+  
+  // Check for Speech Synthesis support
+  if (typeof speechSynthesis === 'undefined') {
+    issues.push('Speech Synthesis not supported');
+    // Not a critical failure, can still play recorded audio
+  }
+  
+  // Check for getUserMedia support
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    issues.push('Media devices API not supported');
+    supported = false;
+  }
+  
+  return { supported, issues };
 };
