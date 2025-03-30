@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -29,9 +28,10 @@ import QRCodeGenerator from "@/components/QRCodeGenerator";
 import { Label, getAllLabels, deleteLabel } from "@/utils/storage";
 import { playAudio, base64ToBlob, textToSpeech } from "@/utils/audio";
 import { announceToScreenReader } from "@/utils/accessibility";
-import { Trash2, Play, Edit, ArrowRight } from "lucide-react";
+import { Trash2, Play, Edit, ArrowRight, FileDown } from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
+import { generatePrintablePDF } from "@/utils/pdf";
 
 const MyLabels = () => {
   const [labels, setLabels] = useState<Label[]>([]);
@@ -39,12 +39,34 @@ const MyLabels = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [labelToDelete, setLabelToDelete] = useState<Label | null>(null);
   const [selectedLabel, setSelectedLabel] = useState<Label | null>(null);
+  const [isPdfGenerating, setIsPdfGenerating] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
   useEffect(() => {
     const storedLabels = getAllLabels();
-    setLabels(storedLabels);
+    
+    // Sort labels numerically by their ID if they're premade
+    const sortedLabels = storedLabels.sort((a, b) => {
+      // First prioritize premade vs custom
+      if (a.isPremade && !b.isPremade) return -1;
+      if (!a.isPremade && b.isPremade) return 1;
+      
+      // Then sort premade labels numerically by their ID
+      if (a.isPremade && b.isPremade) {
+        const aMatch = a.id.match(/premade-(\d+)/);
+        const bMatch = b.id.match(/premade-(\d+)/);
+        
+        if (aMatch && bMatch) {
+          return parseInt(aMatch[1]) - parseInt(bMatch[1]);
+        }
+      }
+      
+      // Otherwise sort by creation date (newest first)
+      return b.createdAt - a.createdAt;
+    });
+    
+    setLabels(sortedLabels);
   }, []);
 
   const playLabel = async (label: Label) => {
@@ -111,6 +133,29 @@ const MyLabels = () => {
   // Show label details including QR code
   const showLabelDetails = (label: Label) => {
     setSelectedLabel(label);
+  };
+  
+  // Generate a printable PDF of all labels
+  const handleGeneratePDF = async () => {
+    try {
+      setIsPdfGenerating(true);
+      await generatePrintablePDF(labels);
+      setIsPdfGenerating(false);
+      
+      toast({
+        title: "PDF Generated",
+        description: "Your labels PDF has been downloaded",
+      });
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      setIsPdfGenerating(false);
+      
+      toast({
+        title: "PDF Generation Failed",
+        description: "Could not generate PDF. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
@@ -210,7 +255,18 @@ const MyLabels = () => {
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.3 }}
               >
-                <h2 className="text-xl font-bold mb-4">Your Labels</h2>
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-xl font-bold">Your Labels</h2>
+                  
+                  <Button 
+                    variant="outline" 
+                    onClick={handleGeneratePDF}
+                    disabled={isPdfGenerating}
+                  >
+                    <FileDown className="mr-2 h-4 w-4" />
+                    {isPdfGenerating ? "Generating PDF..." : "Print All Labels"}
+                  </Button>
+                </div>
                 
                 <Table>
                   <TableHeader>

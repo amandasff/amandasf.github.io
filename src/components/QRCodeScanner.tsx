@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { QrReader } from 'react-qr-reader';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,31 @@ const QRCodeScanner: React.FC = () => {
   const [labelName, setLabelName] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(false);
+  const [currentLabel, setCurrentLabel] = useState<any>(null);
   const { toast } = useToast();
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Create an audio element on component mount
+  useEffect(() => {
+    audioRef.current = new Audio();
+    audioRef.current.addEventListener('ended', () => {
+      setIsPlaying(false);
+    });
+    audioRef.current.addEventListener('error', (e) => {
+      console.error('Audio playback error:', e);
+      setIsPlaying(false);
+      setError('Audio playback failed. Try again.');
+    });
+
+    // Cleanup function
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+        audioRef.current.removeEventListener('ended', () => setIsPlaying(false));
+      }
+    };
+  }, []);
 
   // Check audio compatibility on mount
   useEffect(() => {
@@ -37,6 +61,7 @@ const QRCodeScanner: React.FC = () => {
     setError(null);
     setLabelName(null);
     setIsPlaying(false);
+    setCurrentLabel(null);
     setScanning(true);
     announceToScreenReader('Scanner activated, ready to scan QR codes');
   };
@@ -77,7 +102,7 @@ const QRCodeScanner: React.FC = () => {
       provideHapticFeedback();
       
       // Get label from storage
-      await fetchAndPlayLabel(parsedData.labelId);
+      await fetchLabel(parsedData.labelId);
     } catch (err) {
       console.error('Error parsing QR code data:', err);
       setError('Could not read QR code data');
@@ -86,8 +111,8 @@ const QRCodeScanner: React.FC = () => {
     }
   };
 
-  // Fetch and play the label audio
-  const fetchAndPlayLabel = async (labelId: string) => {
+  // Fetch the label without playing
+  const fetchLabel = async (labelId: string) => {
     try {
       setIsLoading(true);
       
@@ -100,6 +125,7 @@ const QRCodeScanner: React.FC = () => {
       }
       
       setLabelName(label.name);
+      setCurrentLabel(label);
       announceToScreenReader(`Found label: ${label.name}`);
       toast({
         title: "Label found",
@@ -107,36 +133,72 @@ const QRCodeScanner: React.FC = () => {
       });
       
       if (!isMuted) {
-        setIsPlaying(true);
+        // Auto-play audio if not muted
+        playLabelAudio();
+      }
+    } catch (err) {
+      console.error('Error fetching label:', err);
+      setError('Failed to fetch label');
+      announceToScreenReader('Failed to fetch label', 'assertive');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Play the label audio
+  const playLabelAudio = async () => {
+    if (!currentLabel) return;
+    
+    try {
+      setIsPlaying(true);
+      
+      if (audioRef.current) {
+        // Stop any current playback
+        audioRef.current.pause();
+        audioRef.current.src = '';
+      }
+      
+      if (currentLabel.audioData) {
+        // Play recorded audio
+        console.log("Playing recorded audio for label:", currentLabel.name);
+        const audioBlob = base64ToBlob(currentLabel.audioData);
         
-        try {
-          if (label.audioData) {
-            // Play recorded audio
-            console.log("Playing recorded audio for label:", label.name);
-            const audioBlob = base64ToBlob(label.audioData);
-            await playAudio(audioBlob);
-          } else if (label.content) {
-            // Use text-to-speech
-            console.log("Using text-to-speech for label:", label.name);
-            await textToSpeech(label.content);
-          }
-        } catch (audioErr) {
-          console.error("Audio playback error:", audioErr);
-          toast({
-            title: "Playback issue",
-            description: "Could not play audio. Try tapping play button.",
-            variant: "destructive",
-          });
+        // Create object URL for the blob
+        const audioUrl = URL.createObjectURL(audioBlob);
+        
+        if (audioRef.current) {
+          audioRef.current.src = audioUrl;
+          audioRef.current.onloadedmetadata = () => {
+            const playPromise = audioRef.current?.play();
+            if (playPromise) {
+              playPromise.catch(error => {
+                console.error("Play promise rejected:", error);
+                toast({
+                  title: "Playback issue",
+                  description: "Could not auto-play audio due to browser restrictions. Try tapping play button.",
+                  variant: "destructive",
+                });
+                setIsPlaying(false);
+              });
+            }
+          };
+          
+          audioRef.current.onended = () => {
+            setIsPlaying(false);
+            URL.revokeObjectURL(audioUrl);
+          };
         }
-        
+      } else if (currentLabel.content) {
+        // Use text-to-speech
+        console.log("Using text-to-speech for label:", currentLabel.name);
+        await textToSpeech(currentLabel.content);
         setIsPlaying(false);
       }
     } catch (err) {
       console.error('Error playing label audio:', err);
       setError('Failed to play audio');
       announceToScreenReader('Failed to play audio', 'assertive');
-    } finally {
-      setIsLoading(false);
+      setIsPlaying(false);
     }
   };
 
@@ -155,11 +217,9 @@ const QRCodeScanner: React.FC = () => {
   };
 
   // Play the label again
-  const playLabelAgain = async () => {
-    if (scanResult) {
-      setIsPlaying(true);
-      await fetchAndPlayLabel(scanResult);
-      setIsPlaying(false);
+  const playLabelAgain = () => {
+    if (currentLabel) {
+      playLabelAudio();
     }
   };
 
@@ -220,7 +280,12 @@ const QRCodeScanner: React.FC = () => {
                       variant="outline"
                       size="icon"
                       className="h-12 w-12 rounded-full"
-                      disabled
+                      onClick={() => {
+                        if (audioRef.current) {
+                          audioRef.current.pause();
+                          setIsPlaying(false);
+                        }
+                      }}
                     >
                       <Pause className="h-6 w-6" />
                     </Button>

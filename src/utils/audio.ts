@@ -54,49 +54,79 @@ export const playAudio = (audioBlob: Blob): Promise<void> => {
       // Create an audio element specifically for this playback
       const audio = new Audio();
       
+      // Add audio element to document for better mobile compatibility
+      document.body.appendChild(audio);
+      
       // Set up event listeners
-      audio.addEventListener('canplaythrough', () => {
+      const handleCanPlay = () => {
+        console.log('Audio can play through');
+        // Create artificial user interaction for mobile
+        document.body.addEventListener('touchstart', initiatePlay, { once: true });
+        
+        // Try to play automatically, but gracefully handle autoplay restrictions
+        initiatePlay();
+      };
+      
+      const initiatePlay = () => {
+        console.log('Initiating play');
         const playPromise = audio.play();
         
         if (playPromise !== undefined) {
           playPromise
             .then(() => {
-              console.log('Audio playback started successfully on mobile');
+              console.log('Audio playback started successfully');
+              document.body.removeEventListener('touchstart', initiatePlay);
             })
             .catch(err => {
-              console.error('Mobile playback failed:', err);
-              reject(new Error(`Playback error: ${err.message}`));
+              console.error('Playback failed:', err);
+              // Don't reject here, let the user manually tap play
+              console.log('Waiting for user interaction');
             });
         }
-      }, { once: true });
+      };
       
-      audio.addEventListener('ended', () => {
+      const handleEnded = () => {
         console.log('Audio playback ended');
-        URL.revokeObjectURL(audioUrl);
+        cleanup();
         resolve();
-      }, { once: true });
+      };
       
-      audio.addEventListener('error', (error) => {
-        console.error('Audio playback error:', error);
+      const handleError = (e: Event) => {
+        console.error('Audio playback error:', e);
+        cleanup();
+        reject(new Error(`Audio error: ${e}`));
+      };
+      
+      // Clean up function to remove the audio element and event listeners
+      const cleanup = () => {
+        audio.removeEventListener('canplaythrough', handleCanPlay);
+        audio.removeEventListener('ended', handleEnded);
+        audio.removeEventListener('error', handleError);
+        document.body.removeEventListener('touchstart', initiatePlay);
+        
+        if (document.body.contains(audio)) {
+          document.body.removeChild(audio);
+        }
+        
         URL.revokeObjectURL(audioUrl);
-        reject(new Error(`Audio error: ${error}`));
-      }, { once: true });
+      };
       
-      // Load and play the audio
+      // Set up event listeners
+      audio.addEventListener('canplaythrough', handleCanPlay, { once: true });
+      audio.addEventListener('ended', handleEnded, { once: true });
+      audio.addEventListener('error', handleError, { once: true });
+      
+      // Load the audio
       audio.src = audioUrl;
       audio.load();
-      
-      // Additional mobile support
-      document.body.appendChild(audio);
       
       // Set a timeout to clean up in case events don't fire
       setTimeout(() => {
         if (document.body.contains(audio)) {
-          document.body.removeChild(audio);
-          URL.revokeObjectURL(audioUrl);
+          cleanup();
           resolve();
         }
-      }, 10000); // 10 second timeout
+      }, 30000); // 30 second timeout
       
     } catch (error) {
       console.error('Error in playAudio:', error);
@@ -116,17 +146,27 @@ export const textToSpeech = (text: string): Promise<SpeechSynthesisUtterance> =>
       
       const utterance = new SpeechSynthesisUtterance(text);
       
-      // Set a voice if available to improve consistency
-      const voices = speechSynthesis.getVoices();
-      if (voices.length > 0) {
-        // Try to find a native voice or use the first one
-        const englishVoice = voices.find(voice => 
-          voice.lang.includes('en') && voice.localService
-        ) || voices[0];
-        
-        if (englishVoice) {
-          utterance.voice = englishVoice;
+      // Set up voices
+      const setVoice = () => {
+        const voices = speechSynthesis.getVoices();
+        if (voices.length > 0) {
+          // Try to find a native voice or use the first one
+          const englishVoice = voices.find(voice => 
+            voice.lang.includes('en') && voice.localService
+          ) || voices[0];
+          
+          if (englishVoice) {
+            utterance.voice = englishVoice;
+          }
         }
+      };
+      
+      // Try to set voice immediately
+      setVoice();
+      
+      // If voices aren't loaded yet, wait for them
+      if (speechSynthesis.onvoiceschanged !== undefined) {
+        speechSynthesis.onvoiceschanged = setVoice;
       }
       
       utterance.rate = 0.9; // Slightly slower for better clarity
@@ -142,6 +182,17 @@ export const textToSpeech = (text: string): Promise<SpeechSynthesisUtterance> =>
         reject(error);
       };
       
+      // Add artificial user interaction for mobile
+      const trySpeak = () => {
+        document.body.removeEventListener('touchstart', trySpeak);
+        speechSynthesis.speak(utterance);
+      };
+      
+      document.body.addEventListener('touchstart', trySpeak, { once: true });
+      
+      // Try speaking directly but handle if it doesn't work
+      speechSynthesis.speak(utterance);
+      
       // Add a manual timeout in case events don't fire correctly
       setTimeout(() => {
         if (speechSynthesis.speaking) {
@@ -149,8 +200,6 @@ export const textToSpeech = (text: string): Promise<SpeechSynthesisUtterance> =>
           resolve(utterance);
         }
       }, 10000);
-      
-      speechSynthesis.speak(utterance);
     } catch (error) {
       console.error('Text to speech error:', error);
       reject(error);
