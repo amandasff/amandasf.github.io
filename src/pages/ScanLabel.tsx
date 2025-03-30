@@ -1,20 +1,13 @@
 
-import React, { useEffect } from "react";
+import React from "react";
 import Layout from "@/components/Layout";
 import Header from "@/components/Header";
 import QRCodeScanner from "@/components/QRCodeScanner";
 import { motion } from "framer-motion";
-import { announcePageNavigation } from "@/utils/accessibility";
 
 const ScanLabel = () => {
-  // Announce page navigation when component mounts
-  useEffect(() => {
-    announcePageNavigation("Scan Label");
-    document.title = "Scan Label - QR Label Reader";
-  }, []);
-
   return (
-    <Layout>
+    <Layout pageName="Scan Label">
       <Header />
       
       <motion.div 

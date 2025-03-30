@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { QrReader } from 'react-qr-reader';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader, Pause, Play, Volume2, VolumeX } from 'lucide-react';
+import { Loader, Pause, Play, Volume2, VolumeX, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getLabelById } from '@/utils/storage';
 import { base64ToBlob, textToSpeech, checkAudioCompatibility } from '@/utils/audio';
@@ -91,7 +91,7 @@ const QRCodeScanner: React.FC = () => {
         if (playPromise !== undefined) {
           playPromise.then(() => {
             audioRef.current?.pause();
-            audioRef.current!.currentTime = 0;
+            if (audioRef.current) audioRef.current.currentTime = 0;
           }).catch(e => {
             console.log('Audio unlock failed:', e);
           });
@@ -240,25 +240,29 @@ const QRCodeScanner: React.FC = () => {
           // Add oncanplay event to handle iOS audio issues
           const playAudioWhenReady = () => {
             console.log("Audio is ready to play");
-            const playPromise = audioRef.current?.play();
-            
-            if (playPromise) {
-              playPromise.catch(error => {
-                console.error("Play promise rejected:", error);
-                
-                // Create a play button that the user can tap to start playback
-                toast({
-                  title: "Tap to play",
-                  description: "Tap the play button to hear the audio",
-                  duration: 5000
+            if (audioRef.current) {
+              const playPromise = audioRef.current.play();
+              
+              if (playPromise) {
+                playPromise.catch(error => {
+                  console.error("Play promise rejected:", error);
+                  
+                  // Create a play button that the user can tap to start playback
+                  toast({
+                    title: "Tap to play",
+                    description: "Tap the play button to hear the audio",
+                    duration: 5000
+                  });
+                  
+                  setIsPlaying(false);
                 });
-                
-                setIsPlaying(false);
-              });
+              }
             }
             
             // Remove the listener after it fires once
-            audioRef.current?.removeEventListener('canplay', playAudioWhenReady);
+            if (audioRef.current) {
+              audioRef.current.removeEventListener('canplay', playAudioWhenReady);
+            }
           };
           
           // Add the event listener
@@ -346,22 +350,40 @@ const QRCodeScanner: React.FC = () => {
             <div className="absolute inset-0 border-[3px] border-white/70 rounded-lg pointer-events-none" />
           </div>
         ) : (
-          <div className="p-6 flex flex-col items-center justify-center min-h-[300px]">
+          <div className="p-6 flex flex-col items-center justify-center min-h-[300px] relative">
+            {/* Close button - added to all states */}
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="absolute top-2 right-2" 
+              onClick={startNewScan}
+              aria-label="Close and start new scan"
+            >
+              <X className="h-5 w-5" />
+            </Button>
+            
             {isLoading ? (
-              <div className="flex flex-col items-center justify-center gap-4">
+              <div className="flex flex-col items-center justify-center gap-4 mt-4">
                 <Loader className="h-12 w-12 text-primary animate-spin" />
                 <p className="text-center font-medium">Loading label data...</p>
               </div>
             ) : error ? (
-              <div className="text-center space-y-4">
+              <div className="text-center space-y-4 mt-4">
                 <p className="text-destructive font-semibold">{error}</p>
                 <Button onClick={startNewScan}>Try Again</Button>
               </div>
             ) : (
-              <div className="text-center space-y-6">
+              <div className="text-center space-y-6 mt-4">
                 <div className="space-y-2">
                   <h3 className="text-xl font-semibold">Label Found</h3>
                   <p className="text-2xl font-bold text-primary">{labelName}</p>
+                  
+                  {/* Display content if available */}
+                  {currentLabel?.content && (
+                    <div className="mt-4 max-h-[200px] overflow-y-auto text-left p-4 bg-muted/30 rounded-md">
+                      <p className="whitespace-pre-line">{currentLabel.content}</p>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="flex justify-center space-x-4">
