@@ -116,30 +116,25 @@ export const toggleHighContrast = (): void => {
   announceToScreenReader(`High contrast mode ${isHighContrast ? 'enabled' : 'disabled'}`);
 };
 
-// Function to increase text size - FIXED to actually increase size
+// Function to increase text size
 export const increaseTextSize = (): void => {
   const html = document.documentElement;
   const currentSize = parseFloat(getComputedStyle(html).fontSize);
-  const newSize = currentSize * 1.1;
-  html.style.fontSize = `${newSize}px`;
-  localStorage.setItem('fontSize', newSize.toString());
+  html.style.fontSize = `${currentSize * 1.1}px`;
   announceToScreenReader('Text size increased');
 };
 
-// Function to decrease text size - FIXED to actually decrease size
+// Function to decrease text size
 export const decreaseTextSize = (): void => {
   const html = document.documentElement;
   const currentSize = parseFloat(getComputedStyle(html).fontSize);
-  const newSize = currentSize * 0.9;
-  html.style.fontSize = `${newSize}px`;
-  localStorage.setItem('fontSize', newSize.toString());
+  html.style.fontSize = `${currentSize * 0.9}px`;
   announceToScreenReader('Text size decreased');
 };
 
 // Function to reset text size
 export const resetTextSize = (): void => {
   document.documentElement.style.fontSize = '';
-  localStorage.removeItem('fontSize');
   announceToScreenReader('Text size reset to default');
 };
 
@@ -198,12 +193,6 @@ export const initializeAccessibilitySettings = (): void => {
   const highContrast = localStorage.getItem('highContrast') === 'true';
   if (highContrast) {
     document.body.classList.add('high-contrast-mode');
-  }
-  
-  // Restore font size setting if it exists
-  const savedFontSize = localStorage.getItem('fontSize');
-  if (savedFontSize) {
-    document.documentElement.style.fontSize = `${savedFontSize}px`;
   }
   
   // Enable focus indicators by default

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { motion } from 'framer-motion';
 import AccessibilityControls from '@/components/AccessibilityControls';
@@ -17,7 +16,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       transition={{ duration: 0.2 }}
     >
       {children}
-      {/* AccessibilityControls is now rendered via the Layout component */}
       <AccessibilityControls />
     </motion.div>
   );

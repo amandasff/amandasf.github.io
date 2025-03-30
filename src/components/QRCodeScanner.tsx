@@ -1,13 +1,13 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { QrReader } from 'react-qr-reader';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader, Pause, Play, Volume2, VolumeX, BookOpen } from 'lucide-react';
+import { Loader, Pause, Play, Volume2, VolumeX } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getLabelById } from '@/utils/storage';
 import { base64ToBlob, textToSpeech, checkAudioCompatibility } from '@/utils/audio';
 import { announceToScreenReader, provideHapticFeedback } from '@/utils/accessibility';
-import { useIsMobile } from '@/hooks/use-mobile';
 
 const QRCodeScanner: React.FC = () => {
   const [scanning, setScanning] = useState<boolean>(true);
@@ -18,11 +18,9 @@ const QRCodeScanner: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [currentLabel, setCurrentLabel] = useState<any>(null);
-  const [showRecipe, setShowRecipe] = useState<boolean>(false);
   const { toast } = useToast();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
-  const isMobile = useIsMobile();
 
   // Create an audio element on component mount
   useEffect(() => {
@@ -70,54 +68,6 @@ const QRCodeScanner: React.FC = () => {
     };
   }, []);
 
-  // Unlock audio on mobile devices - crucial for iOS/Safari
-  useEffect(() => {
-    const unlockAudio = () => {
-      if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
-        audioContextRef.current.resume().catch(console.error);
-      }
-      
-      // Create and play a silent buffer to unlock audio on iOS
-      if (audioContextRef.current) {
-        const buffer = audioContextRef.current.createBuffer(1, 1, 22050);
-        const source = audioContextRef.current.createBufferSource();
-        source.buffer = buffer;
-        source.connect(audioContextRef.current.destination);
-        source.start(0);
-      }
-      
-      // Also unlock the audio element
-      if (audioRef.current) {
-        audioRef.current.muted = true;
-        audioRef.current.playsInline = true;
-        audioRef.current.play().catch(() => {
-          console.log('Silent playback failed but this is expected on some browsers');
-        });
-        setTimeout(() => {
-          if (audioRef.current) {
-            audioRef.current.muted = false;
-            audioRef.current.pause();
-          }
-        }, 50);
-      }
-    };
-    
-    // Add event listeners for user interaction to unlock audio
-    const interactionEvents = ['touchstart', 'touchend', 'mousedown', 'keydown'];
-    interactionEvents.forEach(event => {
-      document.addEventListener(event, unlockAudio, { once: true });
-    });
-    
-    // Try to unlock immediately for subsequent page visits
-    unlockAudio();
-    
-    return () => {
-      interactionEvents.forEach(event => {
-        document.removeEventListener(event, unlockAudio);
-      });
-    };
-  }, []);
-
   // Check audio compatibility on mount
   useEffect(() => {
     const { supported, issues } = checkAudioCompatibility();
@@ -128,6 +78,42 @@ const QRCodeScanner: React.FC = () => {
         variant: "destructive",
       });
     }
+    
+    // Unlock audio on iOS by creating and playing a silent buffer on user interaction
+    const unlockAudio = () => {
+      if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+        audioContextRef.current.resume().catch(console.error);
+      }
+      
+      // Play and immediately pause the audio element to unlock it
+      if (audioRef.current) {
+        const playPromise = audioRef.current.play();
+        if (playPromise !== undefined) {
+          playPromise.then(() => {
+            audioRef.current?.pause();
+            audioRef.current!.currentTime = 0;
+          }).catch(e => {
+            console.log('Audio unlock failed:', e);
+          });
+        }
+      }
+      
+      // Remove listeners after first interaction
+      document.removeEventListener('touchstart', unlockAudio);
+      document.removeEventListener('touchend', unlockAudio);
+      document.removeEventListener('click', unlockAudio);
+    };
+    
+    // Add listeners for user interaction
+    document.addEventListener('touchstart', unlockAudio, { once: true });
+    document.addEventListener('touchend', unlockAudio, { once: true });
+    document.addEventListener('click', unlockAudio, { once: true });
+    
+    return () => {
+      document.removeEventListener('touchstart', unlockAudio);
+      document.removeEventListener('touchend', unlockAudio);
+      document.removeEventListener('click', unlockAudio);
+    };
   }, []);
 
   // Reset state when starting a new scan
@@ -137,7 +123,6 @@ const QRCodeScanner: React.FC = () => {
     setLabelName(null);
     setIsPlaying(false);
     setCurrentLabel(null);
-    setShowRecipe(false);
     setScanning(true);
     announceToScreenReader('Scanner activated, ready to scan QR codes');
   };
@@ -210,7 +195,7 @@ const QRCodeScanner: React.FC = () => {
       
       if (!isMuted) {
         // Auto-play audio if not muted
-        playLabelAudio(false); // Pass false to play intro only, not recipe
+        playLabelAudio();
       }
     } catch (err) {
       console.error('Error fetching label:', err);
@@ -222,7 +207,7 @@ const QRCodeScanner: React.FC = () => {
   };
 
   // Play the label audio
-  const playLabelAudio = async (includeRecipe = false) => {
+  const playLabelAudio = async () => {
     if (!currentLabel) return;
     
     try {
@@ -248,50 +233,50 @@ const QRCodeScanner: React.FC = () => {
         const audioUrl = URL.createObjectURL(audioBlob);
         
         if (audioRef.current) {
+          // Set properties first
           audioRef.current.src = audioUrl;
           audioRef.current.preload = 'auto';
           
-          // Mobile fix: add event listener for when audio is ready
-          const playWhenReady = () => {
-            console.log("Audio canplay event fired, attempting playback");
+          // Add oncanplay event to handle iOS audio issues
+          const playAudioWhenReady = () => {
+            console.log("Audio is ready to play");
             const playPromise = audioRef.current?.play();
+            
             if (playPromise) {
               playPromise.catch(error => {
-                console.error("Playback failed:", error);
-                // Try a user-initiated play on next interaction
+                console.error("Play promise rejected:", error);
+                
+                // Create a play button that the user can tap to start playback
+                toast({
+                  title: "Tap to play",
+                  description: "Tap the play button to hear the audio",
+                  duration: 5000
+                });
+                
                 setIsPlaying(false);
-                setError('Tab play button to hear audio');
               });
             }
+            
+            // Remove the listener after it fires once
+            audioRef.current?.removeEventListener('canplay', playAudioWhenReady);
           };
           
-          audioRef.current.addEventListener('canplay', playWhenReady, { once: true });
+          // Add the event listener
+          audioRef.current.addEventListener('canplay', playAudioWhenReady, { once: true });
           
-          // Set up onended handler to clean up
+          // Set onended to clean up URL object and update UI
           audioRef.current.onended = () => {
             setIsPlaying(false);
             URL.revokeObjectURL(audioUrl);
           };
           
-          // Start loading
+          // Start loading the audio
           audioRef.current.load();
         }
       } else if (currentLabel.content) {
         // Use text-to-speech
         console.log("Using text-to-speech for label:", currentLabel.name);
-        let contentToSpeak = currentLabel.content;
-        
-        // If it's a recipe label and includeRecipe is true, use full content
-        // Otherwise only use the first part (before the recipe details)
-        if (currentLabel.hasRecipe && !includeRecipe) {
-          // Just use the first sentence or two - everything before "Recipe for"
-          const recipeIndex = contentToSpeak.indexOf("Recipe for");
-          if (recipeIndex > 0) {
-            contentToSpeak = contentToSpeak.substring(0, recipeIndex);
-          }
-        }
-        
-        await textToSpeech(contentToSpeak);
+        await textToSpeech(currentLabel.content);
         setIsPlaying(false);
       }
     } catch (err) {
@@ -316,17 +301,15 @@ const QRCodeScanner: React.FC = () => {
     announceToScreenReader(isMuted ? 'Audio enabled' : 'Audio muted');
   };
 
-  // Toggle recipe view
-  const toggleRecipe = () => {
-    setShowRecipe(!showRecipe);
-    if (!showRecipe && currentLabel?.hasRecipe) {
-      announceToScreenReader('Recipe details shown');
-      // Play the full content including recipe when showing recipe
-      if (!isPlaying) {
-        playLabelAudio(true);
+  // Play the label again
+  const playLabelAgain = () => {
+    if (currentLabel) {
+      // Unlock audio context if needed (iOS requirement)
+      if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+        audioContextRef.current.resume().catch(console.error);
       }
-    } else {
-      announceToScreenReader('Recipe details hidden');
+      
+      playLabelAudio();
     }
   };
 
@@ -340,23 +323,6 @@ const QRCodeScanner: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [error]);
-
-  // Get recipe text for display
-  const getRecipeText = () => {
-    if (!currentLabel?.content) return '';
-    
-    // Extract just the recipe part if it exists
-    const content = currentLabel.content;
-    const recipeIndex = content.indexOf("Recipe for");
-    if (recipeIndex > 0) {
-      return content.substring(recipeIndex);
-    }
-    return '';
-  };
-
-  // Check if current label has a recipe
-  const hasRecipe = currentLabel?.hasRecipe || 
-    (currentLabel?.content && currentLabel.content.includes("Recipe for"));
 
   return (
     <div className="w-full max-w-sm mx-auto">
@@ -392,20 +358,13 @@ const QRCodeScanner: React.FC = () => {
                 <Button onClick={startNewScan}>Try Again</Button>
               </div>
             ) : (
-              <div className="text-center space-y-6 w-full">
+              <div className="text-center space-y-6">
                 <div className="space-y-2">
                   <h3 className="text-xl font-semibold">Label Found</h3>
                   <p className="text-2xl font-bold text-primary">{labelName}</p>
                 </div>
                 
-                {showRecipe && hasRecipe && (
-                  <div className="bg-muted p-4 rounded-md text-left max-h-44 overflow-y-auto">
-                    <h4 className="font-semibold mb-2">Recipe</h4>
-                    <p className="text-sm whitespace-pre-line">{getRecipeText()}</p>
-                  </div>
-                )}
-                
-                <div className="flex justify-center space-x-3">
+                <div className="flex justify-center space-x-4">
                   {isPlaying ? (
                     <Button
                       variant="outline"
@@ -425,7 +384,7 @@ const QRCodeScanner: React.FC = () => {
                       variant="outline"
                       size="icon"
                       className="h-12 w-12 rounded-full"
-                      onClick={() => playLabelAudio(showRecipe)}
+                      onClick={playLabelAgain}
                     >
                       <Play className="h-6 w-6" />
                     </Button>
@@ -439,17 +398,6 @@ const QRCodeScanner: React.FC = () => {
                   >
                     {isMuted ? <VolumeX className="h-6 w-6" /> : <Volume2 className="h-6 w-6" />}
                   </Button>
-                  
-                  {hasRecipe && (
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className={`h-12 w-12 rounded-full ${showRecipe ? 'bg-primary/10' : ''}`}
-                      onClick={toggleRecipe}
-                    >
-                      <BookOpen className="h-6 w-6" />
-                    </Button>
-                  )}
                 </div>
                 
                 <Button 
