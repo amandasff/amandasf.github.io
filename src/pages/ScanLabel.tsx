@@ -24,8 +24,8 @@ const ScanLabel = () => {
         transition={{ duration: 0.3 }}
       >
         <div className="text-center space-y-2 mb-4">
-          <h1 className="text-xl font-bold sr-only">Scan QR Code Label</h1>
-          <p className="text-muted-foreground font-medium text-lg">
+          <h1 className="text-2xl font-bold">Scan QR Code Label</h1>
+          <p className="text-muted-foreground font-medium">
             Point your camera at a QR code to scan it
           </p>
         </div>

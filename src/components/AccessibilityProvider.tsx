@@ -1,6 +1,5 @@
 
 import React, { ReactNode, useEffect } from 'react';
-import AccessibilityControls from '@/components/AccessibilityControls';
 import { 
   announcePageNavigation,
   enableFocusIndicators
@@ -27,7 +26,7 @@ const AccessibilityProvider = ({ children, pageName }: AccessibilityProviderProp
   return (
     <>
       {children}
-      <AccessibilityControls />
+      {/* Removed duplicate AccessibilityControls component */}
     </>
   );
 };

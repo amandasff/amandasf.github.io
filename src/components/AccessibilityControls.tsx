@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { 
   Eye, 
@@ -7,8 +7,10 @@ import {
   ZoomOut, 
   RotateCcw,
   Mic, 
-  Volume2
+  Volume2,
+  Settings
 } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { 
   toggleHighContrast, 
   increaseTextSize, 
@@ -23,6 +25,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 const AccessibilityControls = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [voiceCommandsActive, setVoiceCommandsActive] = useState(false);
+  const isMobile = useIsMobile();
 
   // Function to start voice commands
   const startVoiceCommands = () => {
@@ -64,8 +67,20 @@ const AccessibilityControls = () => {
     `);
   };
 
+  // Close the panel when on mobile and navigating away
+  useEffect(() => {
+    const handleLocationChange = () => {
+      if (isMobile && isOpen) {
+        setIsOpen(false);
+      }
+    };
+
+    window.addEventListener('popstate', handleLocationChange);
+    return () => window.removeEventListener('popstate', handleLocationChange);
+  }, [isMobile, isOpen]);
+
   return (
-    <div className="fixed bottom-4 right-4 z-50">
+    <div className="fixed bottom-4 right-4 z-50 max-w-[calc(100vw-2rem)]">
       <Collapsible open={isOpen} onOpenChange={setIsOpen} className="bg-card border rounded-lg shadow-lg">
         <CollapsibleTrigger asChild>
           <Button 
@@ -74,10 +89,10 @@ const AccessibilityControls = () => {
             className="h-12 w-12 rounded-full"
             aria-label={isOpen ? "Hide accessibility controls" : "Show accessibility controls"}
           >
-            <Eye className="h-6 w-6" />
+            {isOpen ? <Settings className="h-6 w-6" /> : <Eye className="h-6 w-6" />}
           </Button>
         </CollapsibleTrigger>
-        <CollapsibleContent className="p-4 space-y-4">
+        <CollapsibleContent className="p-4 space-y-4 overflow-y-auto max-h-[70vh]">
           <div aria-live="polite" className="sr-only">
             Accessibility controls expanded
           </div>
@@ -91,16 +106,28 @@ const AccessibilityControls = () => {
               High Contrast Mode
             </Button>
             
-            <div className="flex gap-2">
-              <Button onClick={increaseTextSize} aria-label="Increase text size">
+            <div className={`flex ${isMobile ? 'flex-col' : 'flex-row'} gap-2`}>
+              <Button 
+                onClick={increaseTextSize} 
+                aria-label="Increase text size"
+                className={isMobile ? "w-full justify-start" : ""}
+              >
                 <ZoomIn className="mr-2 h-4 w-4" />
                 Larger Text
               </Button>
-              <Button onClick={decreaseTextSize} aria-label="Decrease text size">
+              <Button 
+                onClick={decreaseTextSize} 
+                aria-label="Decrease text size"
+                className={isMobile ? "w-full justify-start" : ""}
+              >
                 <ZoomOut className="mr-2 h-4 w-4" />
                 Smaller Text
               </Button>
-              <Button onClick={resetTextSize} aria-label="Reset text size">
+              <Button 
+                onClick={resetTextSize} 
+                aria-label="Reset text size"
+                className={isMobile ? "w-full justify-start" : ""}
+              >
                 <RotateCcw className="mr-2 h-4 w-4" />
                 Reset
               </Button>
@@ -110,6 +137,7 @@ const AccessibilityControls = () => {
               onClick={startVoiceCommands} 
               disabled={voiceCommandsActive}
               aria-label="Enable voice commands"
+              className="justify-start"
             >
               <Mic className="mr-2 h-4 w-4" />
               {voiceCommandsActive ? "Voice Commands Active" : "Enable Voice Commands"}
@@ -118,6 +146,7 @@ const AccessibilityControls = () => {
             <Button 
               onClick={announceShortcuts}
               aria-label="Read keyboard shortcuts"
+              className="justify-start"
             >
               <Volume2 className="mr-2 h-4 w-4" />
               Read Keyboard Shortcuts

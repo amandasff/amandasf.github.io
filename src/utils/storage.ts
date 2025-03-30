@@ -1,4 +1,3 @@
-
 // Local storage utilities for managing labels
 
 export interface Label {
@@ -10,6 +9,7 @@ export interface Label {
   qrCode?: string; // Base64 encoded QR code
   isPremade?: boolean; // Flag to identify pre-made labels
   isEditable?: boolean; // Flag to allow editing, true by default
+  hasRecipe?: boolean; // Flag to indicate if this label contains a recipe
 }
 
 // Prefix for storage keys
@@ -58,7 +58,43 @@ export const PREMADE_LABELS: Label[] = [
     isPremade: true,
     isEditable: true
   },
-  // Additional premade labels (35 more for a total of 40)
+  // Additional labels with recipes
+  {
+    id: 'premade-19',
+    name: 'Baking Supplies - Cookie Recipe',
+    content: 'Baking Supplies - Contains flour, sugar, baking soda, and other baking ingredients. Recipe for Chocolate Chip Cookies: Ingredients: 1 cup butter, 1 cup white sugar, 1 cup packed brown sugar, 2 eggs, 2 teaspoons vanilla extract, 3 cups all-purpose flour, 1 teaspoon baking soda, 2 teaspoons hot water, 1/2 teaspoon salt, 2 cups chocolate chips. Instructions: 1. Preheat oven to 350 degrees F. 2. Cream butter and sugars until smooth. 3. Beat in eggs one at a time, then stir in vanilla. 4. Dissolve baking soda in hot water and add to batter along with salt. 5. Stir in flour and chocolate chips. 6. Drop by large spoonfuls onto ungreased pans. 7. Bake for about 10 minutes until edges are nicely browned.',
+    createdAt: Date.now(),
+    isPremade: true,
+    isEditable: true,
+    hasRecipe: true
+  },
+  {
+    id: 'premade-20',
+    name: 'Spice Rack - Curry Recipe',
+    content: 'Spice Rack - Contains various spices and seasonings. Recipe for Simple Vegetable Curry: Ingredients: 2 tablespoons vegetable oil, 1 large onion (diced), 3 cloves garlic (minced), 1 tablespoon ginger (grated), 2 tablespoons curry powder, 1 teaspoon cumin, 1 teaspoon turmeric, 1/2 teaspoon coriander, 1 can diced tomatoes, 1 can coconut milk, 2 cups mixed vegetables, salt to taste. Instructions: 1. Heat oil in a large pot. 2. Add onion and cook until translucent. 3. Add garlic and ginger, cook for 1 minute. 4. Add spices and cook until fragrant. 5. Add tomatoes and coconut milk, bring to simmer. 6. Add vegetables and cook until tender. 7. Season with salt and serve with rice.',
+    createdAt: Date.now(),
+    isPremade: true,
+    isEditable: true,
+    hasRecipe: true
+  },
+  {
+    id: 'premade-30',
+    name: 'Bed Linens - Lavender Spray Recipe',
+    content: 'Bed Linens - Contains sheets, pillowcases, and other bedding. Recipe for Calming Lavender Linen Spray: Ingredients: 1/2 cup distilled water, 1/2 cup witch hazel, 15 drops lavender essential oil, 5 drops chamomile essential oil (optional), small spray bottle. Instructions: 1. Pour distilled water and witch hazel into the spray bottle. 2. Add essential oils. 3. Close bottle and shake well to mix. 4. Spray lightly on linens before bedtime for better sleep. 5. Shake before each use.',
+    createdAt: Date.now(),
+    isPremade: true,
+    isEditable: true,
+    hasRecipe: true
+  },
+  {
+    id: 'premade-38',
+    name: 'Compost Bin - Gardening Recipe',
+    content: 'Compost Bin - For food scraps and compostable materials. Recipe for Simple Compost: Ingredients: Green materials (vegetable scraps, coffee grounds, fresh grass clippings), Brown materials (dry leaves, small twigs, cardboard), Water, Air. Instructions: 1. Start with a layer of brown materials at the bottom. 2. Add a layer of green materials. 3. Continue alternating brown and green layers. 4. Keep compost as moist as a wrung-out sponge. 5. Turn compost every few weeks with a garden fork to aerate. 6. Compost is ready when it\'s dark, crumbly, and earthy-smelling, usually in 3-6 months.',
+    createdAt: Date.now(),
+    isPremade: true,
+    isEditable: true,
+    hasRecipe: true
+  },
   {
     id: 'premade-6',
     name: 'Refrigerator',
@@ -164,22 +200,6 @@ export const PREMADE_LABELS: Label[] = [
     isEditable: true
   },
   {
-    id: 'premade-19',
-    name: 'Baking Supplies',
-    content: 'Baking Supplies - Contains flour, sugar, baking soda, and other baking ingredients',
-    createdAt: Date.now(),
-    isPremade: true,
-    isEditable: true
-  },
-  {
-    id: 'premade-20',
-    name: 'Spice Rack',
-    content: 'Spice Rack - Contains various spices and seasonings',
-    createdAt: Date.now(),
-    isPremade: true,
-    isEditable: true
-  },
-  {
     id: 'premade-21',
     name: 'Camping Gear',
     content: 'Camping Gear - Contains tent, sleeping bags, and other camping equipment',
@@ -252,17 +272,17 @@ export const PREMADE_LABELS: Label[] = [
     isEditable: true
   },
   {
-    id: 'premade-30',
-    name: 'Bed Linens',
-    content: 'Bed Linens - Contains sheets, pillowcases, and other bedding',
+    id: 'premade-31',
+    name: 'Shoe Rack',
+    content: 'Shoe Rack - Contains shoes and shoe care items',
     createdAt: Date.now(),
     isPremade: true,
     isEditable: true
   },
   {
-    id: 'premade-31',
-    name: 'Shoe Rack',
-    content: 'Shoe Rack - Contains shoes and shoe care items',
+    id: 'premade-30',
+    name: 'Bed Linens',
+    content: 'Bed Linens - Contains sheets, pillowcases, and other bedding',
     createdAt: Date.now(),
     isPremade: true,
     isEditable: true
@@ -316,14 +336,6 @@ export const PREMADE_LABELS: Label[] = [
     isEditable: true
   },
   {
-    id: 'premade-38',
-    name: 'Compost Bin',
-    content: 'Compost Bin - For food scraps and compostable materials',
-    createdAt: Date.now(),
-    isPremade: true,
-    isEditable: true
-  },
-  {
     id: 'premade-39',
     name: 'Car Maintenance',
     content: 'Car Maintenance - Contains car care products and tools',
@@ -335,6 +347,22 @@ export const PREMADE_LABELS: Label[] = [
     id: 'premade-40',
     name: 'Computer Accessories',
     content: 'Computer Accessories - Contains mouse, keyboard, cables, and other computer items',
+    createdAt: Date.now(),
+    isPremade: true,
+    isEditable: true
+  },
+  {
+    id: 'premade-30',
+    name: 'Bed Linens',
+    content: 'Bed Linens - Contains sheets, pillowcases, and other bedding',
+    createdAt: Date.now(),
+    isPremade: true,
+    isEditable: true
+  },
+  {
+    id: 'premade-30',
+    name: 'Bed Linens',
+    content: 'Bed Linens - Contains sheets, pillowcases, and other bedding',
     createdAt: Date.now(),
     isPremade: true,
     isEditable: true
@@ -350,6 +378,11 @@ export const initializePremadeLabels = (): void => {
     } else if (existingLabel && !existingLabel.isEditable) {
       // Update existing premade labels to be editable if they weren't before
       existingLabel.isEditable = true;
+      saveLabel(existingLabel);
+    } else if (existingLabel && label.hasRecipe && (!existingLabel.hasRecipe || existingLabel.content !== label.content)) {
+      // Update existing labels with recipe information if it's new or changed
+      existingLabel.content = label.content;
+      existingLabel.hasRecipe = true;
       saveLabel(existingLabel);
     }
   });
