@@ -106,8 +106,7 @@ export const trapFocus = (element: HTMLElement): () => void => {
   };
 };
 
-// New accessibility functions
-
+// Fixed text size functions to properly increase and decrease font size
 // Function to toggle high contrast mode
 export const toggleHighContrast = (): void => {
   document.body.classList.toggle('high-contrast-mode');
@@ -116,25 +115,35 @@ export const toggleHighContrast = (): void => {
   announceToScreenReader(`High contrast mode ${isHighContrast ? 'enabled' : 'disabled'}`);
 };
 
+// Function to get current font size
+const getCurrentFontSize = (): number => {
+  const fontSize = localStorage.getItem('fontSize');
+  return fontSize ? parseFloat(fontSize) : 16; // Default browser font size is usually 16px
+};
+
 // Function to increase text size
 export const increaseTextSize = (): void => {
-  const html = document.documentElement;
-  const currentSize = parseFloat(getComputedStyle(html).fontSize);
-  html.style.fontSize = `${currentSize * 1.1}px`;
+  const currentSize = getCurrentFontSize();
+  const newSize = currentSize * 1.1; // Increase by 10%
+  document.documentElement.style.fontSize = `${newSize}px`;
+  localStorage.setItem('fontSize', newSize.toString());
   announceToScreenReader('Text size increased');
 };
 
 // Function to decrease text size
 export const decreaseTextSize = (): void => {
-  const html = document.documentElement;
-  const currentSize = parseFloat(getComputedStyle(html).fontSize);
-  html.style.fontSize = `${currentSize * 0.9}px`;
+  const currentSize = getCurrentFontSize();
+  const newSize = currentSize * 0.9; // Decrease by 10%
+  document.documentElement.style.fontSize = `${newSize}px`;
+  localStorage.setItem('fontSize', newSize.toString());
   announceToScreenReader('Text size decreased');
 };
 
 // Function to reset text size
 export const resetTextSize = (): void => {
-  document.documentElement.style.fontSize = '';
+  const defaultSize = 16;
+  document.documentElement.style.fontSize = `${defaultSize}px`;
+  localStorage.setItem('fontSize', defaultSize.toString());
   announceToScreenReader('Text size reset to default');
 };
 
@@ -193,6 +202,12 @@ export const initializeAccessibilitySettings = (): void => {
   const highContrast = localStorage.getItem('highContrast') === 'true';
   if (highContrast) {
     document.body.classList.add('high-contrast-mode');
+  }
+  
+  // Restore font size setting
+  const fontSize = localStorage.getItem('fontSize');
+  if (fontSize) {
+    document.documentElement.style.fontSize = `${fontSize}px`;
   }
   
   // Enable focus indicators by default
