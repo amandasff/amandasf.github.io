@@ -3,10 +3,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { QrReader } from 'react-qr-reader';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader, Pause, Play, Volume2, VolumeX, X } from 'lucide-react';
+import { Loader, Pause, Play, Volume2, VolumeX, X, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getLabelById } from '@/utils/storage';
-import { base64ToBlob, textToSpeech, checkAudioCompatibility } from '@/utils/audio';
+import { base64ToBlob, playAudio, textToSpeech, checkAudioCompatibility } from '@/utils/audio';
 import { announceToScreenReader, provideHapticFeedback } from '@/utils/accessibility';
 
 const QRCodeScanner: React.FC = () => {
@@ -230,6 +230,7 @@ const QRCodeScanner: React.FC = () => {
       if (audioRef.current) {
         // Stop any current playback
         audioRef.current.pause();
+        audioRef.current.currentTime = 0;
         audioRef.current.src = '';
       }
       
@@ -250,22 +251,22 @@ const QRCodeScanner: React.FC = () => {
           const playAudioWhenReady = () => {
             console.log("Audio is ready to play");
             if (audioRef.current) {
-              const playPromise = audioRef.current.play();
-              
-              if (playPromise) {
-                playPromise.catch(error => {
-                  console.error("Play promise rejected:", error);
+              // Force iOS to unlock audio with a short user interaction timeout
+              setTimeout(() => {
+                if (audioRef.current) {
+                  console.log("Attempting to play audio");
+                  const playPromise = audioRef.current.play();
                   
-                  // Create a play button that the user can tap to start playback
-                  toast({
-                    title: "Tap to play",
-                    description: "Tap the play button to hear the audio",
-                    duration: 5000
-                  });
-                  
-                  setIsPlaying(false);
-                });
-              }
+                  if (playPromise) {
+                    playPromise.catch(error => {
+                      console.error("Play promise rejected:", error);
+                      // Only show error if genuinely can't play
+                      setError('Tap the play button to hear the audio');
+                      setIsPlaying(false);
+                    });
+                  }
+                }
+              }, 100);
             }
             
             // Remove the listener after it fires once
@@ -290,9 +291,15 @@ const QRCodeScanner: React.FC = () => {
       } else if (currentLabel.content) {
         // Use text-to-speech
         console.log("Using text-to-speech for label:", currentLabel.name);
-        await textToSpeech(currentLabel.content);
-        setIsPlaying(false);
-        setPlaybackCompleted(true);
+        try {
+          await textToSpeech(currentLabel.content);
+          setIsPlaying(false);
+          setPlaybackCompleted(true);
+        } catch (speechErr) {
+          console.error("Text-to-speech error:", speechErr);
+          setError('Text-to-speech failed. Try tapping the play button.');
+          setIsPlaying(false);
+        }
       }
     } catch (err) {
       console.error('Error playing label audio:', err);
@@ -313,6 +320,9 @@ const QRCodeScanner: React.FC = () => {
   // Toggle mute
   const toggleMute = () => {
     setIsMuted(!isMuted);
+    if (audioRef.current) {
+      audioRef.current.muted = !isMuted;
+    }
     announceToScreenReader(isMuted ? 'Audio enabled' : 'Audio muted');
   };
 
@@ -351,15 +361,16 @@ const QRCodeScanner: React.FC = () => {
           </div>
         ) : (
           <div className="p-6 flex flex-col items-center justify-center min-h-[300px] relative">
-            {/* Close button - present in all states */}
+            {/* Back button instead of close - better semantics */}
             <Button 
               variant="ghost" 
-              size="icon" 
-              className="absolute top-2 right-2" 
+              size="sm" 
+              className="absolute top-2 left-2 z-10" 
               onClick={startNewScan}
-              aria-label="Close and start new scan"
+              aria-label="Back to scanner"
             >
-              <X className="h-5 w-5" />
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              <span className="text-xs">Back</span>
             </Button>
             
             {isLoading ? (
@@ -368,25 +379,25 @@ const QRCodeScanner: React.FC = () => {
                 <p className="text-center font-medium">Loading label data...</p>
               </div>
             ) : error ? (
-              <div className="text-center space-y-4 mt-4">
+              <div className="text-center space-y-4 mt-8">
                 <p className="text-destructive font-semibold">{error}</p>
-                <Button onClick={startNewScan}>Try Again</Button>
+                <Button onClick={startNewScan} className="mt-4">Try Again</Button>
               </div>
             ) : (
-              <div className="text-center space-y-6 mt-4">
+              <div className="text-center space-y-4 w-full pt-8">
                 <div className="space-y-2">
                   <h3 className="text-xl font-semibold">Label Found</h3>
                   <p className="text-2xl font-bold text-primary">{labelName}</p>
                   
                   {/* Display content if available */}
                   {currentLabel?.content && (
-                    <div className="mt-4 max-h-[200px] overflow-y-auto text-left p-4 bg-muted/30 rounded-md">
+                    <div className="mt-4 max-h-[180px] overflow-y-auto text-left p-4 bg-muted/30 rounded-md">
                       <p className="whitespace-pre-line">{currentLabel.content}</p>
                     </div>
                   )}
                 </div>
                 
-                <div className="flex justify-center space-x-4">
+                <div className="flex justify-center space-x-4 mt-6">
                   {isPlaying ? (
                     <Button
                       variant="outline"
@@ -398,6 +409,7 @@ const QRCodeScanner: React.FC = () => {
                           setIsPlaying(false);
                         }
                       }}
+                      aria-label="Pause audio"
                     >
                       <Pause className="h-6 w-6" />
                     </Button>
@@ -407,6 +419,7 @@ const QRCodeScanner: React.FC = () => {
                       size="icon"
                       className="h-12 w-12 rounded-full"
                       onClick={playLabelAgain}
+                      aria-label="Play audio"
                     >
                       <Play className="h-6 w-6" />
                     </Button>
@@ -417,13 +430,14 @@ const QRCodeScanner: React.FC = () => {
                     size="icon"
                     className="h-12 w-12 rounded-full"
                     onClick={toggleMute}
+                    aria-label={isMuted ? "Unmute audio" : "Mute audio"}
                   >
                     {isMuted ? <VolumeX className="h-6 w-6" /> : <Volume2 className="h-6 w-6" />}
                   </Button>
                 </div>
                 
                 <Button 
-                  className="w-full mt-4" 
+                  className="w-full mt-6" 
                   onClick={startNewScan}
                 >
                   Scan Another Code

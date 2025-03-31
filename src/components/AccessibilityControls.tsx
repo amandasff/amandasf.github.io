@@ -34,12 +34,14 @@ const AccessibilityControls = () => {
       const panel = document.querySelector('.accessibility-panel') as HTMLElement;
       if (panel) {
         if (window.innerWidth < 640) {
-          // Right side on mobile
+          // Bottom right corner on mobile
           panel.style.right = '1rem';
+          panel.style.bottom = '1rem';
           panel.style.transform = 'none';
         } else {
-          // Right side on desktop
+          // Bottom right corner on desktop too for consistency
           panel.style.right = '1rem';
+          panel.style.bottom = '1rem';
           panel.style.transform = 'none';
         }
       }
@@ -93,7 +95,7 @@ const AccessibilityControls = () => {
   };
 
   return (
-    <div className={`fixed ${isMobile ? 'bottom-4 right-4' : 'bottom-4 right-4'} z-50 accessibility-panel`}>
+    <div className="fixed bottom-4 right-4 z-50 accessibility-panel">
       <Collapsible open={isOpen} onOpenChange={setIsOpen} className="bg-card border rounded-lg shadow-lg">
         <CollapsibleTrigger asChild>
           <Button 
@@ -105,13 +107,13 @@ const AccessibilityControls = () => {
             <Eye className="h-6 w-6" />
           </Button>
         </CollapsibleTrigger>
-        <CollapsibleContent className={`p-3 space-y-3 ${isMobile ? 'max-w-[90vw] w-[280px]' : ''}`}>
+        <CollapsibleContent className={`p-3 space-y-3 ${isMobile ? 'max-w-[85vw] w-[260px]' : ''}`}>
           <div aria-live="polite" className="sr-only">
             Accessibility controls expanded
           </div>
           
           <div className="flex items-center justify-between">
-            <div className="text-lg font-medium">Accessibility Options</div>
+            <div className="text-lg font-medium">Accessibility</div>
             <Button 
               variant="ghost" 
               size="icon" 
@@ -176,7 +178,7 @@ const AccessibilityControls = () => {
               size={isMobile ? "sm" : "default"}
             >
               <Volume2 className="mr-2 h-4 w-4" />
-              Read Keyboard Shortcuts
+              Read Shortcuts
             </Button>
           </div>
           

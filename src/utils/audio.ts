@@ -182,21 +182,17 @@ export const textToSpeech = (text: string): Promise<SpeechSynthesisUtterance> =>
         reject(error);
       };
       
-      // Add artificial user interaction for mobile
-      const trySpeak = () => {
-        document.body.removeEventListener('touchstart', trySpeak);
-        speechSynthesis.speak(utterance);
-      };
-      
-      document.body.addEventListener('touchstart', trySpeak, { once: true });
-      
-      // Try speaking directly but handle if it doesn't work
+      // Try speaking directly
+      console.log("Starting text-to-speech...");
       speechSynthesis.speak(utterance);
       
       // Add a manual timeout in case events don't fire correctly
       setTimeout(() => {
         if (speechSynthesis.speaking) {
-          speechSynthesis.cancel();
+          console.log("Speech synthesis is still speaking after timeout, resolving anyway");
+          resolve(utterance);
+        } else if (!utterance.onend) {
+          console.log("Speech synthesis didn't fire onend event, resolving manually");
           resolve(utterance);
         }
       }, 10000);
