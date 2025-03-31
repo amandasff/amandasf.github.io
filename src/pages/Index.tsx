@@ -9,48 +9,15 @@ import Header from "@/components/Header";
 import { PlusCircle, Search, LayoutList, Tag } from "lucide-react";
 import { motion } from "framer-motion";
 import { Label, getPremadeLabels } from "@/utils/storage";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useIsMobile } from "@/hooks/use-mobile";
 
 const Index = () => {
   const [premadeLabels, setPremadeLabels] = useState<Label[]>([]);
-  const isMobile = useIsMobile();
 
   useEffect(() => {
-    // Get pre-made labels and sort them numerically by ID
-    const labels = getPremadeLabels().sort((a, b) => {
-      const aNum = parseInt(a.id.replace('premade-', ''));
-      const bNum = parseInt(b.id.replace('premade-', ''));
-      return aNum - bNum;
-    });
+    // Get pre-made labels
+    const labels = getPremadeLabels();
     setPremadeLabels(labels);
   }, []);
-
-  // Group labels by category for better organization
-  const categorizedLabels = {
-    kitchen: premadeLabels.filter(label => 
-      ['Kitchen', 'Refrigerator', 'Freezer', 'Pantry', 'Spice', 'Food', 'Baking'].some(
-        term => label.name.includes(term)
-      )
-    ),
-    household: premadeLabels.filter(label => 
-      ['Bathroom', 'Bedroom', 'Laundry', 'Cleaning', 'Towels', 'Linens'].some(
-        term => label.name.includes(term)
-      )
-    ),
-    office: premadeLabels.filter(label => 
-      ['Office', 'Documents', 'Files', 'Computer'].some(
-        term => label.name.includes(term)
-      )
-    ),
-    other: premadeLabels.filter(label => 
-      !['Kitchen', 'Refrigerator', 'Freezer', 'Pantry', 'Spice', 'Food', 'Baking',
-        'Bathroom', 'Bedroom', 'Laundry', 'Cleaning', 'Towels', 'Linens',
-        'Office', 'Documents', 'Files', 'Computer'].some(
-        term => label.name.includes(term)
-      )
-    )
-  };
 
   return (
     <Layout>
@@ -157,111 +124,24 @@ const Index = () => {
               <Tag className="h-4 w-4 text-primary" />
               <h3 className="font-semibold">Pre-made Labels</h3>
             </div>
-            
-            <Tabs defaultValue="all" className="w-full">
-              <TabsList className="grid grid-cols-4 mb-4">
-                <TabsTrigger value="all">All</TabsTrigger>
-                <TabsTrigger value="kitchen">Kitchen</TabsTrigger>
-                <TabsTrigger value="household">Home</TabsTrigger>
-                <TabsTrigger value="office">Office</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="all">
-                <Card className="overflow-hidden">
-                  <div className={`p-4 ${isMobile ? "max-h-[300px]" : "max-h-[400px]"} overflow-y-auto space-y-0`}>
-                    {premadeLabels.map((label, index) => (
-                      <React.Fragment key={label.id}>
-                        <Link 
-                          to={`/create?edit=${label.id}`}
-                          className="block hover:bg-muted/30 rounded p-2 transition-colors"
-                        >
-                          <div className="flex justify-between items-center">
-                            <span className="font-medium">{label.name}</span>
-                            <span className="text-xs text-muted-foreground">#{parseInt(label.id.replace('premade-', ''))}</span>
-                          </div>
-                        </Link>
-                        {index < premadeLabels.length - 1 && <Separator className="my-1" />}
-                      </React.Fragment>
-                    ))}
-                  </div>
-                </Card>
-              </TabsContent>
-              
-              <TabsContent value="kitchen">
-                <Card className="overflow-hidden">
-                  <div className={`p-4 ${isMobile ? "max-h-[300px]" : "max-h-[400px]"} overflow-y-auto space-y-0`}>
-                    {categorizedLabels.kitchen.length > 0 ? (
-                      categorizedLabels.kitchen.map((label, index) => (
-                        <React.Fragment key={label.id}>
-                          <Link 
-                            to={`/create?edit=${label.id}`}
-                            className="block hover:bg-muted/30 rounded p-2 transition-colors"
-                          >
-                            <div className="flex justify-between items-center">
-                              <span className="font-medium">{label.name}</span>
-                              <span className="text-xs text-muted-foreground">#{parseInt(label.id.replace('premade-', ''))}</span>
-                            </div>
-                          </Link>
-                          {index < categorizedLabels.kitchen.length - 1 && <Separator className="my-1" />}
-                        </React.Fragment>
-                      ))
-                    ) : (
-                      <p className="text-center py-4 text-muted-foreground">No kitchen labels found</p>
-                    )}
-                  </div>
-                </Card>
-              </TabsContent>
-              
-              <TabsContent value="household">
-                <Card className="overflow-hidden">
-                  <div className={`p-4 ${isMobile ? "max-h-[300px]" : "max-h-[400px]"} overflow-y-auto space-y-0`}>
-                    {categorizedLabels.household.length > 0 ? (
-                      categorizedLabels.household.map((label, index) => (
-                        <React.Fragment key={label.id}>
-                          <Link 
-                            to={`/create?edit=${label.id}`}
-                            className="block hover:bg-muted/30 rounded p-2 transition-colors"
-                          >
-                            <div className="flex justify-between items-center">
-                              <span className="font-medium">{label.name}</span>
-                              <span className="text-xs text-muted-foreground">#{parseInt(label.id.replace('premade-', ''))}</span>
-                            </div>
-                          </Link>
-                          {index < categorizedLabels.household.length - 1 && <Separator className="my-1" />}
-                        </React.Fragment>
-                      ))
-                    ) : (
-                      <p className="text-center py-4 text-muted-foreground">No household labels found</p>
-                    )}
-                  </div>
-                </Card>
-              </TabsContent>
-              
-              <TabsContent value="office">
-                <Card className="overflow-hidden">
-                  <div className={`p-4 ${isMobile ? "max-h-[300px]" : "max-h-[400px]"} overflow-y-auto space-y-0`}>
-                    {categorizedLabels.office.length > 0 ? (
-                      categorizedLabels.office.map((label, index) => (
-                        <React.Fragment key={label.id}>
-                          <Link 
-                            to={`/create?edit=${label.id}`}
-                            className="block hover:bg-muted/30 rounded p-2 transition-colors"
-                          >
-                            <div className="flex justify-between items-center">
-                              <span className="font-medium">{label.name}</span>
-                              <span className="text-xs text-muted-foreground">#{parseInt(label.id.replace('premade-', ''))}</span>
-                            </div>
-                          </Link>
-                          {index < categorizedLabels.office.length - 1 && <Separator className="my-1" />}
-                        </React.Fragment>
-                      ))
-                    ) : (
-                      <p className="text-center py-4 text-muted-foreground">No office labels found</p>
-                    )}
-                  </div>
-                </Card>
-              </TabsContent>
-            </Tabs>
+            <Card className="overflow-hidden">
+              <div className="p-4 space-y-2">
+                {premadeLabels.map((label, index) => (
+                  <React.Fragment key={label.id}>
+                    <Link 
+                      to={`/create?edit=${label.id}`}
+                      className="block hover:bg-muted/30 rounded p-2 transition-colors"
+                    >
+                      <div className="flex justify-between items-center">
+                        <span className="font-medium">{label.name}</span>
+                        <span className="text-xs text-muted-foreground">{`#${label.id}`}</span>
+                      </div>
+                    </Link>
+                    {index < premadeLabels.length - 1 && <Separator className="my-1" />}
+                  </React.Fragment>
+                ))}
+              </div>
+            </Card>
           </div>
         )}
       </motion.div>
