@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Loader, Pause, Play, Volume2, VolumeX } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getLabelById } from '@/utils/storage';
-import { playAudio, base64ToBlob, textToSpeech, checkAudioCompatibility } from '@/utils/audio';
+import { base64ToBlob, textToSpeech, checkAudioCompatibility } from '@/utils/audio';
 import { announceToScreenReader, provideHapticFeedback } from '@/utils/accessibility';
 
 const QRCodeScanner: React.FC = () => {
@@ -20,25 +20,50 @@ const QRCodeScanner: React.FC = () => {
   const [currentLabel, setCurrentLabel] = useState<any>(null);
   const { toast } = useToast();
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
 
   // Create an audio element on component mount
   useEffect(() => {
+    // Create audio element
     audioRef.current = new Audio();
-    audioRef.current.addEventListener('ended', () => {
-      setIsPlaying(false);
-    });
-    audioRef.current.addEventListener('error', (e) => {
+    
+    // Set up event listeners
+    const handleEnded = () => setIsPlaying(false);
+    const handleError = (e: Event) => {
       console.error('Audio playback error:', e);
       setIsPlaying(false);
       setError('Audio playback failed. Try again.');
-    });
+      toast({
+        title: "Audio Error",
+        description: "Playback failed. Please try the play button.",
+        variant: "destructive"
+      });
+    };
+    
+    // Add event listeners
+    audioRef.current.addEventListener('ended', handleEnded);
+    audioRef.current.addEventListener('error', handleError);
+    
+    // Initialize AudioContext for better mobile support
+    try {
+      // @ts-ignore - for older browser compatibility
+      window.AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioContextRef.current = new AudioContext();
+    } catch (e) {
+      console.error('Web Audio API is not supported in this browser', e);
+    }
 
     // Cleanup function
     return () => {
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current.src = '';
-        audioRef.current.removeEventListener('ended', () => setIsPlaying(false));
+        audioRef.current.removeEventListener('ended', handleEnded);
+        audioRef.current.removeEventListener('error', handleError);
+      }
+      
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        audioContextRef.current.close().catch(console.error);
       }
     };
   }, []);
@@ -53,6 +78,42 @@ const QRCodeScanner: React.FC = () => {
         variant: "destructive",
       });
     }
+    
+    // Unlock audio on iOS by creating and playing a silent buffer on user interaction
+    const unlockAudio = () => {
+      if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+        audioContextRef.current.resume().catch(console.error);
+      }
+      
+      // Play and immediately pause the audio element to unlock it
+      if (audioRef.current) {
+        const playPromise = audioRef.current.play();
+        if (playPromise !== undefined) {
+          playPromise.then(() => {
+            audioRef.current?.pause();
+            audioRef.current!.currentTime = 0;
+          }).catch(e => {
+            console.log('Audio unlock failed:', e);
+          });
+        }
+      }
+      
+      // Remove listeners after first interaction
+      document.removeEventListener('touchstart', unlockAudio);
+      document.removeEventListener('touchend', unlockAudio);
+      document.removeEventListener('click', unlockAudio);
+    };
+    
+    // Add listeners for user interaction
+    document.addEventListener('touchstart', unlockAudio, { once: true });
+    document.addEventListener('touchend', unlockAudio, { once: true });
+    document.addEventListener('click', unlockAudio, { once: true });
+    
+    return () => {
+      document.removeEventListener('touchstart', unlockAudio);
+      document.removeEventListener('touchend', unlockAudio);
+      document.removeEventListener('click', unlockAudio);
+    };
   }, []);
 
   // Reset state when starting a new scan
@@ -152,6 +213,11 @@ const QRCodeScanner: React.FC = () => {
     try {
       setIsPlaying(true);
       
+      // Make sure AudioContext is running (for iOS)
+      if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+        await audioContextRef.current.resume();
+      }
+      
       if (audioRef.current) {
         // Stop any current playback
         audioRef.current.pause();
@@ -167,26 +233,45 @@ const QRCodeScanner: React.FC = () => {
         const audioUrl = URL.createObjectURL(audioBlob);
         
         if (audioRef.current) {
+          // Set properties first
           audioRef.current.src = audioUrl;
-          audioRef.current.onloadedmetadata = () => {
+          audioRef.current.preload = 'auto';
+          
+          // Add oncanplay event to handle iOS audio issues
+          const playAudioWhenReady = () => {
+            console.log("Audio is ready to play");
             const playPromise = audioRef.current?.play();
+            
             if (playPromise) {
               playPromise.catch(error => {
                 console.error("Play promise rejected:", error);
+                
+                // Create a play button that the user can tap to start playback
                 toast({
-                  title: "Playback issue",
-                  description: "Could not auto-play audio due to browser restrictions. Try tapping play button.",
-                  variant: "destructive",
+                  title: "Tap to play",
+                  description: "Tap the play button to hear the audio",
+                  duration: 5000
                 });
+                
                 setIsPlaying(false);
               });
             }
+            
+            // Remove the listener after it fires once
+            audioRef.current?.removeEventListener('canplay', playAudioWhenReady);
           };
           
+          // Add the event listener
+          audioRef.current.addEventListener('canplay', playAudioWhenReady, { once: true });
+          
+          // Set onended to clean up URL object and update UI
           audioRef.current.onended = () => {
             setIsPlaying(false);
             URL.revokeObjectURL(audioUrl);
           };
+          
+          // Start loading the audio
+          audioRef.current.load();
         }
       } else if (currentLabel.content) {
         // Use text-to-speech
@@ -196,8 +281,8 @@ const QRCodeScanner: React.FC = () => {
       }
     } catch (err) {
       console.error('Error playing label audio:', err);
-      setError('Failed to play audio');
-      announceToScreenReader('Failed to play audio', 'assertive');
+      setError('Tap the play button to hear the audio');
+      announceToScreenReader('Failed to play audio automatically. Please use the play button.', 'assertive');
       setIsPlaying(false);
     }
   };
@@ -219,6 +304,11 @@ const QRCodeScanner: React.FC = () => {
   // Play the label again
   const playLabelAgain = () => {
     if (currentLabel) {
+      // Unlock audio context if needed (iOS requirement)
+      if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+        audioContextRef.current.resume().catch(console.error);
+      }
+      
       playLabelAudio();
     }
   };

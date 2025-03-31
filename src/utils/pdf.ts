@@ -1,3 +1,4 @@
+
 import QRCode from 'qrcode';
 import { Label } from './storage';
 
@@ -189,7 +190,8 @@ export const generatePrintablePDF = async (labels: Label[]): Promise<void> => {
     doc.text('6. The app will scan the code and play the associated audio', 20, guideY);
     guideY += lineHeight * 2;
     
-    doc.text('For best results:', 20, guideY, { fontStyle: 'bold' });
+    // Fixed the fontStyle error by removing it
+    doc.text('For best results:', 20, guideY);
     guideY += lineHeight;
     
     doc.text('• Ensure good lighting when scanning codes', 20, guideY);
