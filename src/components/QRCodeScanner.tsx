@@ -3,11 +3,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { QrReader } from 'react-qr-reader';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader, Pause, Play, Volume2, VolumeX, X } from 'lucide-react';
+import { Loader, Pause, Play, Volume2, VolumeX, Home } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getLabelById } from '@/utils/storage';
-import { base64ToBlob, textToSpeech, checkAudioCompatibility } from '@/utils/audio';
+import { base64ToBlob, playAudio, textToSpeech, checkAudioCompatibility } from '@/utils/audio';
 import { announceToScreenReader, provideHapticFeedback } from '@/utils/accessibility';
+import { Link } from 'react-router-dom';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const QRCodeScanner: React.FC = () => {
   const [scanning, setScanning] = useState<boolean>(true);
@@ -21,8 +23,9 @@ const QRCodeScanner: React.FC = () => {
   const { toast } = useToast();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const isMobile = useIsMobile();
 
-  // Create an audio element on component mount
+  // Create an audio element on component mount with mobile-specific handling
   useEffect(() => {
     // Create audio element
     audioRef.current = new Audio();
@@ -32,11 +35,11 @@ const QRCodeScanner: React.FC = () => {
     const handleError = (e: Event) => {
       console.error('Audio playback error:', e);
       setIsPlaying(false);
-      setError('Audio playback failed. Try again.');
+      setError('Try tapping the play button');
       toast({
-        title: "Audio Error",
-        description: "Playback failed. Please try the play button.",
-        variant: "destructive"
+        title: "Tap to Play",
+        description: "Please tap the play button to hear the audio",
+        variant: "default"
       });
     };
     
@@ -53,6 +56,55 @@ const QRCodeScanner: React.FC = () => {
       console.error('Web Audio API is not supported in this browser', e);
     }
 
+    // Create a special iOS-friendly silent buffer and play it to unlock audio
+    if (isMobile) {
+      const unlockAudioForIOS = () => {
+        document.body.removeEventListener('touchstart', unlockAudioForIOS);
+        
+        // Unlock audio context
+        if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+          audioContextRef.current.resume().catch(console.error);
+        }
+        
+        // Create and play a silent buffer
+        try {
+          const silentBuffer = audioContextRef.current?.createBuffer(1, 1, 22050);
+          const source = audioContextRef.current?.createBufferSource();
+          if (silentBuffer && source && audioContextRef.current) {
+            source.buffer = silentBuffer;
+            source.connect(audioContextRef.current.destination);
+            source.start(0);
+            source.stop(0.001); // Very short
+            
+            console.log("iOS audio context unlocked");
+          }
+        } catch (e) {
+          console.error("Failed to create silent buffer:", e);
+        }
+        
+        // Also try playing a short sound with the Audio element
+        if (audioRef.current) {
+          audioRef.current.src = 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAASAAAeMwAUFBQUFCIiIiIiIjAwMDAwPj4+Pj4+TExMTExaWlpaWlpoaGhoaHd3d3d3d4aGhoaGlJSUlJSUnZ2dnZ2dsbGxsbG/v7+/v8bGxsbGxs7Ozs7O1tbW1tbW3d3d3d3d5eXl5eXl8fHx8fHx+vr6+vr6/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+AABDb21tZW50AABMYXZjNTguMTM4LjEwMAAAAAAAAAAAAAAAVGl0bGUAAEF1ZGlvLndhcnAAAAAAAAAAAAAAAFllYXIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//7UAAAABUQZp4OjisABwAAVygnCQf7//vYRAAAAnZXVnbWkAAEMoAk/AAAAF9ltlVsYUgAQzAEH8AAAAT/////+7GUCs27u8BgMB//8BgYDAYDAYDAb/g');
+          const playPromise = audioRef.current.play();
+          
+          if (playPromise !== undefined) {
+            playPromise
+              .then(() => {
+                console.log("iOS audio element unlocked");
+                if (audioRef.current) {
+                  audioRef.current.pause();
+                  audioRef.current.currentTime = 0;
+                }
+              })
+              .catch(e => console.error("iOS audio unlock failed:", e));
+          }
+        }
+      };
+      
+      // Add listener for user interaction to unlock audio
+      document.body.addEventListener('touchstart', unlockAudioForIOS, { once: true });
+    }
+
     // Cleanup function
     return () => {
       if (audioRef.current) {
@@ -66,7 +118,7 @@ const QRCodeScanner: React.FC = () => {
         audioContextRef.current.close().catch(console.error);
       }
     };
-  }, []);
+  }, [isMobile]);
 
   // Check audio compatibility on mount
   useEffect(() => {
@@ -78,42 +130,6 @@ const QRCodeScanner: React.FC = () => {
         variant: "destructive",
       });
     }
-    
-    // Unlock audio on iOS by creating and playing a silent buffer on user interaction
-    const unlockAudio = () => {
-      if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
-        audioContextRef.current.resume().catch(console.error);
-      }
-      
-      // Play and immediately pause the audio element to unlock it
-      if (audioRef.current) {
-        const playPromise = audioRef.current.play();
-        if (playPromise !== undefined) {
-          playPromise.then(() => {
-            audioRef.current?.pause();
-            if (audioRef.current) audioRef.current.currentTime = 0;
-          }).catch(e => {
-            console.log('Audio unlock failed:', e);
-          });
-        }
-      }
-      
-      // Remove listeners after first interaction
-      document.removeEventListener('touchstart', unlockAudio);
-      document.removeEventListener('touchend', unlockAudio);
-      document.removeEventListener('click', unlockAudio);
-    };
-    
-    // Add listeners for user interaction
-    document.addEventListener('touchstart', unlockAudio, { once: true });
-    document.addEventListener('touchend', unlockAudio, { once: true });
-    document.addEventListener('click', unlockAudio, { once: true });
-    
-    return () => {
-      document.removeEventListener('touchstart', unlockAudio);
-      document.removeEventListener('touchend', unlockAudio);
-      document.removeEventListener('click', unlockAudio);
-    };
   }, []);
 
   // Reset state when starting a new scan
@@ -206,7 +222,7 @@ const QRCodeScanner: React.FC = () => {
     }
   };
 
-  // Play the label audio
+  // Play the label audio - Mobile-optimized version
   const playLabelAudio = async () => {
     if (!currentLabel) return;
     
@@ -221,61 +237,88 @@ const QRCodeScanner: React.FC = () => {
       if (audioRef.current) {
         // Stop any current playback
         audioRef.current.pause();
-        audioRef.current.src = '';
+        audioRef.current.removeAttribute('src');
       }
       
       if (currentLabel.audioData) {
-        // Play recorded audio
+        // Play recorded audio with mobile-specific handling
         console.log("Playing recorded audio for label:", currentLabel.name);
+        
+        // Convert base64 to blob
         const audioBlob = base64ToBlob(currentLabel.audioData);
         
-        // Create object URL for the blob
-        const audioUrl = URL.createObjectURL(audioBlob);
-        
-        if (audioRef.current) {
-          // Set properties first
-          audioRef.current.src = audioUrl;
-          audioRef.current.preload = 'auto';
-          
-          // Add oncanplay event to handle iOS audio issues
-          const playAudioWhenReady = () => {
-            console.log("Audio is ready to play");
-            if (audioRef.current) {
-              const playPromise = audioRef.current.play();
-              
-              if (playPromise) {
-                playPromise.catch(error => {
-                  console.error("Play promise rejected:", error);
-                  
-                  // Create a play button that the user can tap to start playback
-                  toast({
-                    title: "Tap to play",
-                    description: "Tap the play button to hear the audio",
-                    duration: 5000
-                  });
-                  
-                  setIsPlaying(false);
-                });
-              }
-            }
+        // Mobile browsers handle URLs differently, so use a more direct approach
+        if (isMobile) {
+          try {
+            // Create object URL for the blob
+            const audioUrl = URL.createObjectURL(audioBlob);
             
-            // Remove the listener after it fires once
             if (audioRef.current) {
-              audioRef.current.removeEventListener('canplay', playAudioWhenReady);
+              // Set up audio element
+              audioRef.current.src = audioUrl;
+              audioRef.current.preload = 'auto';
+              
+              // Add event listener to handle successful loading
+              const handleCanPlay = () => {
+                console.log("Mobile: Audio can play through");
+                if (audioRef.current) {
+                  // Attempt to play
+                  const mobilePlayPromise = audioRef.current.play();
+                  
+                  if (mobilePlayPromise !== undefined) {
+                    mobilePlayPromise
+                      .then(() => {
+                        console.log("Mobile: Audio playback started successfully");
+                      })
+                      .catch(err => {
+                        console.error("Mobile: Playback failed:", err);
+                        setIsPlaying(false);
+                        setError('Tap the play button to hear the audio');
+                        toast({
+                          title: "Tap to Play",
+                          description: "Please tap the play button to hear the audio",
+                          duration: 5000
+                        });
+                      });
+                  }
+                }
+                
+                // Clean up event listener
+                if (audioRef.current) {
+                  audioRef.current.removeEventListener('canplaythrough', handleCanPlay);
+                }
+              };
+              
+              // Set up for cleaning URL object on ended
+              const handleMobileEnded = () => {
+                console.log("Mobile: Audio playback ended");
+                setIsPlaying(false);
+                URL.revokeObjectURL(audioUrl);
+                
+                // Remove this once-only listener
+                if (audioRef.current) {
+                  audioRef.current.removeEventListener('ended', handleMobileEnded);
+                }
+              };
+              
+              // Add the event listeners
+              audioRef.current.addEventListener('canplaythrough', handleCanPlay, { once: true });
+              audioRef.current.addEventListener('ended', handleMobileEnded, { once: true });
+              
+              // Start loading the audio
+              audioRef.current.load();
             }
-          };
-          
-          // Add the event listener
-          audioRef.current.addEventListener('canplay', playAudioWhenReady, { once: true });
-          
-          // Set onended to clean up URL object and update UI
-          audioRef.current.onended = () => {
+          } catch (mobileErr) {
+            console.error("Mobile audio playback error:", mobileErr);
+            
+            // Fallback to the general playAudio utility
+            await playAudio(audioBlob);
             setIsPlaying(false);
-            URL.revokeObjectURL(audioUrl);
-          };
-          
-          // Start loading the audio
-          audioRef.current.load();
+          }
+        } else {
+          // Desktop browser handling
+          await playAudio(audioBlob);
+          setIsPlaying(false);
         }
       } else if (currentLabel.content) {
         // Use text-to-speech
@@ -322,7 +365,7 @@ const QRCodeScanner: React.FC = () => {
     if (error) {
       const timer = setTimeout(() => {
         startNewScan();
-      }, 3000);
+      }, 5000);
       
       return () => clearTimeout(timer);
     }
@@ -351,15 +394,16 @@ const QRCodeScanner: React.FC = () => {
           </div>
         ) : (
           <div className="p-6 flex flex-col items-center justify-center min-h-[300px] relative">
-            {/* Close button - added to all states */}
+            {/* Home button - replaced X button */}
             <Button 
               variant="ghost" 
               size="icon" 
               className="absolute top-2 right-2" 
-              onClick={startNewScan}
-              aria-label="Close and start new scan"
+              asChild
             >
-              <X className="h-5 w-5" />
+              <Link to="/" aria-label="Go to home page">
+                <Home className="h-5 w-5" />
+              </Link>
             </Button>
             
             {isLoading ? (
