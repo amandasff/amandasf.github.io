@@ -27,23 +27,15 @@ const AccessibilityControls = () => {
   const [voiceCommandsActive, setVoiceCommandsActive] = useState(false);
   const isMobile = useIsMobile();
   
-  // Detect viewport changes to ensure visibility on both mobile and desktop
+  // Position the accessibility panel properly on both mobile and desktop
   useEffect(() => {
     const handleResize = () => {
-      // Adjust the panel position based on viewport size
       const panel = document.querySelector('.accessibility-panel') as HTMLElement;
       if (panel) {
-        if (window.innerWidth < 640) {
-          // Bottom right corner on mobile
-          panel.style.right = '1rem';
-          panel.style.bottom = '1rem';
-          panel.style.transform = 'none';
-        } else {
-          // Bottom right corner on desktop too for consistency
-          panel.style.right = '1rem';
-          panel.style.bottom = '1rem';
-          panel.style.transform = 'none';
-        }
+        // Always position at bottom right for consistency
+        panel.style.right = '1rem';
+        panel.style.bottom = '1rem';
+        panel.style.transform = 'none';
       }
     };
     
@@ -107,7 +99,7 @@ const AccessibilityControls = () => {
             <Eye className="h-6 w-6" />
           </Button>
         </CollapsibleTrigger>
-        <CollapsibleContent className={`p-3 space-y-3 ${isMobile ? 'max-w-[85vw] w-[260px]' : ''}`}>
+        <CollapsibleContent className={`p-3 space-y-3 ${isMobile ? 'max-w-[240px] w-[240px]' : ''}`}>
           <div aria-live="polite" className="sr-only">
             Accessibility controls expanded
           </div>

@@ -3,11 +3,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { QrReader } from 'react-qr-reader';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader, Pause, Play, Volume2, VolumeX, X, ArrowLeft } from 'lucide-react';
+import { Loader, Pause, Play, Volume2, VolumeX, Home } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getLabelById } from '@/utils/storage';
 import { base64ToBlob, playAudio, textToSpeech, checkAudioCompatibility } from '@/utils/audio';
 import { announceToScreenReader, provideHapticFeedback } from '@/utils/accessibility';
+import { useNavigate } from 'react-router-dom';
 
 const QRCodeScanner: React.FC = () => {
   const [scanning, setScanning] = useState<boolean>(true);
@@ -22,6 +23,7 @@ const QRCodeScanner: React.FC = () => {
   const { toast } = useToast();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const navigate = useNavigate();
 
   // Create an audio element on component mount
   useEffect(() => {
@@ -30,6 +32,7 @@ const QRCodeScanner: React.FC = () => {
     
     // Set up event listeners
     const handleEnded = () => {
+      console.log('Audio playback ended');
       setIsPlaying(false);
       setPlaybackCompleted(true);
     };
@@ -73,7 +76,7 @@ const QRCodeScanner: React.FC = () => {
     };
   }, []);
 
-  // Check audio compatibility on mount
+  // Check audio compatibility on mount and unlock audio
   useEffect(() => {
     const { supported, issues } = checkAudioCompatibility();
     if (!supported) {
@@ -84,26 +87,34 @@ const QRCodeScanner: React.FC = () => {
       });
     }
     
-    // Unlock audio on iOS by creating and playing a silent buffer on user interaction
+    // Function to unlock audio on iOS/Safari
     const unlockAudio = () => {
+      console.log("Attempting to unlock audio...");
+      
       if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+        console.log("Resuming suspended AudioContext");
         audioContextRef.current.resume().catch(console.error);
       }
       
       // Play and immediately pause the audio element to unlock it
       if (audioRef.current) {
+        console.log("Creating and playing silent buffer");
+        audioRef.current.src = "data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAABAAADQgD///////////////////////////////////////////////8AAAA5TEFNRTMuMTAwBK8AAAAAAAAAABSAJAJAQgAAgAAAA0L2YLwxAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//sQZAAP8AAAaQAAAAgAAA0gAAABAAABpAAAACAAADSAAAAETEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVU=";
         const playPromise = audioRef.current.play();
         if (playPromise !== undefined) {
           playPromise.then(() => {
-            audioRef.current?.pause();
-            if (audioRef.current) audioRef.current.currentTime = 0;
+            console.log("Audio unlocked successfully");
+            if (audioRef.current) {
+              audioRef.current.pause();
+              audioRef.current.currentTime = 0;
+            }
           }).catch(e => {
             console.log('Audio unlock failed:', e);
+            // We'll try again on user interaction
           });
         }
       }
       
-      // Remove listeners after first interaction
       document.removeEventListener('touchstart', unlockAudio);
       document.removeEventListener('touchend', unlockAudio);
       document.removeEventListener('click', unlockAudio);
@@ -114,6 +125,9 @@ const QRCodeScanner: React.FC = () => {
     document.addEventListener('touchend', unlockAudio, { once: true });
     document.addEventListener('click', unlockAudio, { once: true });
     
+    // Try immediate unlock as well
+    unlockAudio();
+    
     return () => {
       document.removeEventListener('touchstart', unlockAudio);
       document.removeEventListener('touchend', unlockAudio);
@@ -123,6 +137,7 @@ const QRCodeScanner: React.FC = () => {
 
   // Reset state when starting a new scan
   const startNewScan = () => {
+    console.log("Starting new scan");
     setScanResult(null);
     setError(null);
     setLabelName(null);
@@ -131,6 +146,11 @@ const QRCodeScanner: React.FC = () => {
     setPlaybackCompleted(false);
     setScanning(true);
     announceToScreenReader('Scanner activated, ready to scan QR codes');
+  };
+
+  // Navigate to home
+  const goToHome = () => {
+    navigate('/');
   };
 
   // Handle successful scan
@@ -182,6 +202,7 @@ const QRCodeScanner: React.FC = () => {
   const fetchLabel = async (labelId: string) => {
     try {
       setIsLoading(true);
+      setError(null); // Clear any previous error
       
       const label = getLabelById(labelId);
       if (!label) {
@@ -199,10 +220,13 @@ const QRCodeScanner: React.FC = () => {
         description: label.name,
       });
       
+      console.log("Label found, will attempt to play audio automatically");
+      
       // Always play audio automatically after finding a label
+      // Small delay to ensure UI updates first and audio context is ready
       setTimeout(() => {
         playLabelAudio();
-      }, 500); // Small delay to ensure UI updates first
+      }, 1000);
       
     } catch (err) {
       console.error('Error fetching label:', err);
@@ -213,17 +237,23 @@ const QRCodeScanner: React.FC = () => {
     }
   };
 
-  // Play the label audio
+  // Play the label audio with improved handling for mobile devices
   const playLabelAudio = async () => {
-    if (!currentLabel) return;
+    if (!currentLabel) {
+      console.log("No current label to play");
+      return;
+    }
     
     try {
       setIsPlaying(true);
       setError(null); // Clear any previous error messages
       setPlaybackCompleted(false);
       
+      console.log("Attempting to play audio for label:", currentLabel.name);
+      
       // Make sure AudioContext is running (for iOS)
       if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+        console.log("Resuming suspended AudioContext before playback");
         await audioContextRef.current.resume();
       }
       
@@ -232,67 +262,83 @@ const QRCodeScanner: React.FC = () => {
         audioRef.current.pause();
         audioRef.current.currentTime = 0;
         audioRef.current.src = '';
+        console.log("Audio element reset");
       }
       
       if (currentLabel.audioData) {
         // Play recorded audio
-        console.log("Playing recorded audio for label:", currentLabel.name);
+        console.log("Label has recorded audio data, preparing to play");
         const audioBlob = base64ToBlob(currentLabel.audioData);
         
         // Create object URL for the blob
         const audioUrl = URL.createObjectURL(audioBlob);
+        console.log("Created URL for audio blob:", audioUrl);
         
         if (audioRef.current) {
-          // Set properties first
+          // Configure the audio element
           audioRef.current.src = audioUrl;
           audioRef.current.preload = 'auto';
+          audioRef.current.muted = isMuted;
+          audioRef.current.volume = 1.0; // Ensure full volume
           
-          // Add oncanplay event to handle iOS audio issues
-          const playAudioWhenReady = () => {
+          console.log("Audio element configured, waiting for canplay event");
+          
+          // Define a function to handle when audio is ready to play
+          const playWhenReady = () => {
             console.log("Audio is ready to play");
-            if (audioRef.current) {
-              // Force iOS to unlock audio with a short user interaction timeout
-              setTimeout(() => {
-                if (audioRef.current) {
-                  console.log("Attempting to play audio");
-                  const playPromise = audioRef.current.play();
-                  
-                  if (playPromise) {
-                    playPromise.catch(error => {
-                      console.error("Play promise rejected:", error);
-                      // Only show error if genuinely can't play
-                      setError('Tap the play button to hear the audio');
-                      setIsPlaying(false);
-                    });
-                  }
-                }
-              }, 100);
-            }
             
-            // Remove the listener after it fires once
             if (audioRef.current) {
-              audioRef.current.removeEventListener('canplay', playAudioWhenReady);
+              console.log("Attempting to play audio");
+              const playPromise = audioRef.current.play();
+              
+              if (playPromise !== undefined) {
+                playPromise.then(() => {
+                  console.log("Audio playback started successfully");
+                }).catch(error => {
+                  console.error("Play promise rejected:", error);
+                  
+                  // On iOS, we might need user interaction
+                  toast({
+                    title: "Tap to play",
+                    description: "Tap the play button to hear the audio",
+                  });
+                  setError(null); // Don't show error, just guide the user
+                  setIsPlaying(false);
+                });
+              }
             }
           };
           
-          // Add the event listener
-          audioRef.current.addEventListener('canplay', playAudioWhenReady, { once: true });
+          // Add the canplay event listener
+          audioRef.current.addEventListener('canplay', playWhenReady, { once: true });
           
           // Set onended to clean up URL object and update UI
           audioRef.current.onended = () => {
+            console.log("Audio playback ended naturally");
             setIsPlaying(false);
             setPlaybackCompleted(true);
             URL.revokeObjectURL(audioUrl);
           };
           
           // Start loading the audio
+          console.log("Loading audio");
           audioRef.current.load();
+          
+          // Fallback if canplay doesn't fire within 5 seconds
+          setTimeout(() => {
+            if (isPlaying && audioRef.current) {
+              console.log("Canplay event didn't fire within timeout, trying to play anyway");
+              audioRef.current.removeEventListener('canplay', playWhenReady);
+              playWhenReady();
+            }
+          }, 5000);
         }
       } else if (currentLabel.content) {
         // Use text-to-speech
         console.log("Using text-to-speech for label:", currentLabel.name);
         try {
           await textToSpeech(currentLabel.content);
+          console.log("Text-to-speech completed");
           setIsPlaying(false);
           setPlaybackCompleted(true);
         } catch (speechErr) {
@@ -300,6 +346,10 @@ const QRCodeScanner: React.FC = () => {
           setError('Text-to-speech failed. Try tapping the play button.');
           setIsPlaying(false);
         }
+      } else {
+        console.error("Label has no audio data or content");
+        setError('This label has no audio content');
+        setIsPlaying(false);
       }
     } catch (err) {
       console.error('Error playing label audio:', err);
@@ -358,19 +408,27 @@ const QRCodeScanner: React.FC = () => {
               )}
             />
             <div className="absolute inset-0 border-[3px] border-white/70 rounded-lg pointer-events-none" />
+            <Button 
+              variant="outline" 
+              size="icon" 
+              className="absolute top-2 left-2 bg-background/80 hover:bg-background"
+              onClick={goToHome}
+              aria-label="Go to home"
+            >
+              <Home className="h-4 w-4" />
+            </Button>
           </div>
         ) : (
           <div className="p-6 flex flex-col items-center justify-center min-h-[300px] relative">
-            {/* Back button instead of close - better semantics */}
+            {/* Home button at top left */}
             <Button 
-              variant="ghost" 
-              size="sm" 
+              variant="outline" 
+              size="icon" 
               className="absolute top-2 left-2 z-10" 
-              onClick={startNewScan}
-              aria-label="Back to scanner"
+              onClick={goToHome}
+              aria-label="Go to home"
             >
-              <ArrowLeft className="h-4 w-4 mr-1" />
-              <span className="text-xs">Back</span>
+              <Home className="h-4 w-4" />
             </Button>
             
             {isLoading ? (
@@ -381,7 +439,10 @@ const QRCodeScanner: React.FC = () => {
             ) : error ? (
               <div className="text-center space-y-4 mt-8">
                 <p className="text-destructive font-semibold">{error}</p>
-                <Button onClick={startNewScan} className="mt-4">Try Again</Button>
+                <div className="flex gap-2 mt-4">
+                  <Button onClick={startNewScan}>Try Again</Button>
+                  <Button variant="outline" onClick={goToHome}>Go Home</Button>
+                </div>
               </div>
             ) : (
               <div className="text-center space-y-4 w-full pt-8">
@@ -436,12 +497,22 @@ const QRCodeScanner: React.FC = () => {
                   </Button>
                 </div>
                 
-                <Button 
-                  className="w-full mt-6" 
-                  onClick={startNewScan}
-                >
-                  Scan Another Code
-                </Button>
+                <div className="flex gap-2 mt-6">
+                  <Button 
+                    className="flex-1" 
+                    onClick={startNewScan}
+                  >
+                    Scan Another Code
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={goToHome}
+                  >
+                    Go Home
+                  </Button>
+                </div>
               </div>
             )}
           </div>

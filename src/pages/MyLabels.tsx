@@ -28,7 +28,7 @@ import QRCodeGenerator from "@/components/QRCodeGenerator";
 import { Label, getAllLabels, deleteLabel } from "@/utils/storage";
 import { playAudio, base64ToBlob, textToSpeech } from "@/utils/audio";
 import { announceToScreenReader } from "@/utils/accessibility";
-import { Trash2, Play, Edit, ArrowRight, FileDown } from "lucide-react";
+import { Trash2, Play, Edit, ArrowRight, FileDown, Home } from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import { generatePrintablePDF } from "@/utils/pdf";
@@ -46,13 +46,10 @@ const MyLabels = () => {
   useEffect(() => {
     const storedLabels = getAllLabels();
     
-    // Sort labels numerically by their ID if they're premade
     const sortedLabels = storedLabels.sort((a, b) => {
-      // First prioritize premade vs custom
       if (a.isPremade && !b.isPremade) return -1;
       if (!a.isPremade && b.isPremade) return 1;
       
-      // Then sort premade labels numerically by their ID
       if (a.isPremade && b.isPremade) {
         const aMatch = a.id.match(/premade-(\d+)/);
         const bMatch = b.id.match(/premade-(\d+)/);
@@ -62,7 +59,6 @@ const MyLabels = () => {
         }
       }
       
-      // Otherwise sort by creation date (newest first)
       return b.createdAt - a.createdAt;
     });
     
@@ -111,7 +107,6 @@ const MyLabels = () => {
     setDeleteDialogOpen(false);
     setLabelToDelete(null);
     
-    // If we were viewing the deleted label, go back to the list
     if (selectedLabel && labelToDelete && selectedLabel.id === labelToDelete.id) {
       setSelectedLabel(null);
     }
@@ -130,12 +125,10 @@ const MyLabels = () => {
     });
   };
 
-  // Show label details including QR code
   const showLabelDetails = (label: Label) => {
     setSelectedLabel(label);
   };
-  
-  // Generate a printable PDF of all labels
+
   const handleGeneratePDF = async () => {
     try {
       setIsPdfGenerating(true);
@@ -158,26 +151,39 @@ const MyLabels = () => {
     }
   };
 
+  const goToHome = () => {
+    navigate('/');
+  };
+
   return (
     <Layout>
       <Header />
       
       <div className="space-y-6">
         {selectedLabel ? (
-          // Label detail view with QR code
           <motion.div 
             className="space-y-6"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.3 }}
           >
-            <Button 
-              variant="outline" 
-              className="mb-4"
-              onClick={() => setSelectedLabel(null)}
-            >
-              Back to all labels
-            </Button>
+            <div className="flex justify-between items-center mb-4">
+              <Button 
+                variant="outline" 
+                onClick={() => setSelectedLabel(null)}
+              >
+                Back to all labels
+              </Button>
+              
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={goToHome}
+                aria-label="Go to home"
+              >
+                <Home className="h-5 w-5" />
+              </Button>
+            </div>
             
             <Card className="p-6">
               <div className="space-y-4">
@@ -233,7 +239,6 @@ const MyLabels = () => {
             </Card>
           </motion.div>
         ) : (
-          // Labels list view
           <div>
             {labels.length === 0 ? (
               <motion.div 
@@ -245,9 +250,15 @@ const MyLabels = () => {
                 <p className="text-muted-foreground">
                   You haven't created any labels yet
                 </p>
-                <Button asChild>
-                  <Link to="/create">Create Your First Label</Link>
-                </Button>
+                <div className="flex flex-col gap-4 items-center">
+                  <Button asChild>
+                    <Link to="/create">Create Your First Label</Link>
+                  </Button>
+                  <Button variant="outline" onClick={goToHome}>
+                    <Home className="mr-2 h-4 w-4" />
+                    Go Home
+                  </Button>
+                </div>
               </motion.div>
             ) : (
               <motion.div 
@@ -258,14 +269,25 @@ const MyLabels = () => {
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-xl font-bold">Your Labels</h2>
                   
-                  <Button 
-                    variant="outline" 
-                    onClick={handleGeneratePDF}
-                    disabled={isPdfGenerating}
-                  >
-                    <FileDown className="mr-2 h-4 w-4" />
-                    {isPdfGenerating ? "Generating PDF..." : "Print All Labels"}
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      onClick={handleGeneratePDF}
+                      disabled={isPdfGenerating}
+                    >
+                      <FileDown className="mr-2 h-4 w-4" />
+                      {isPdfGenerating ? "Generating PDF..." : "Print All Labels"}
+                    </Button>
+                    
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={goToHome}
+                      aria-label="Go to home"
+                    >
+                      <Home className="h-5 w-5" />
+                    </Button>
+                  </div>
                 </div>
                 
                 <Table>
@@ -339,9 +361,18 @@ const MyLabels = () => {
                   </TableBody>
                 </Table>
                 
-                <div className="mt-6">
-                  <Button asChild className="w-full">
+                <div className="mt-6 flex gap-2">
+                  <Button asChild className="flex-1">
                     <Link to="/create">Create New Label</Link>
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    className="w-1/4"
+                    onClick={goToHome}
+                  >
+                    <Home className="mr-2 h-4 w-4" />
+                    Home
                   </Button>
                 </div>
               </motion.div>
