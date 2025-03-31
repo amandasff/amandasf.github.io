@@ -7,7 +7,7 @@ import { Loader, Play, Home } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 import { getLabelById } from '@/utils/storage';
-import { playLabelAudio } from '@/utils/audio';
+import { playLabelAudio } from '@/utils/labelAudio';
 import { announceToScreenReader, provideHapticFeedback } from '@/utils/accessibility';
 import { useIsMobile } from '@/hooks/use-mobile';
 
