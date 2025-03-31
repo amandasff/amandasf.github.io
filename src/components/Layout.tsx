@@ -1,12 +1,16 @@
+
 import React from 'react';
 import { motion } from 'framer-motion';
 import AccessibilityControls from '@/components/AccessibilityControls';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface LayoutProps {
   children: React.ReactNode;
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
+  const isMobile = useIsMobile();
+  
   return (
     <motion.div
       className="container mx-auto py-8 px-4"
@@ -16,7 +20,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       transition={{ duration: 0.2 }}
     >
       {children}
-      <AccessibilityControls />
+      <div className={`${isMobile ? 'fixed bottom-4 right-4 z-50' : ''}`}>
+        <AccessibilityControls />
+      </div>
     </motion.div>
   );
 };

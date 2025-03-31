@@ -3,11 +3,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { QrReader } from 'react-qr-reader';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader, Pause, Play, Volume2, VolumeX } from 'lucide-react';
+import { Loader, Play, Home } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
 import { getLabelById } from '@/utils/storage';
-import { base64ToBlob, textToSpeech, checkAudioCompatibility } from '@/utils/audio';
+import { playLabelAudio } from '@/utils/audio';
 import { announceToScreenReader, provideHapticFeedback } from '@/utils/accessibility';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const QRCodeScanner: React.FC = () => {
   const [scanning, setScanning] = useState<boolean>(true);
@@ -16,105 +18,10 @@ const QRCodeScanner: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [labelName, setLabelName] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [isMuted, setIsMuted] = useState<boolean>(false);
   const [currentLabel, setCurrentLabel] = useState<any>(null);
   const { toast } = useToast();
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-
-  // Create an audio element on component mount
-  useEffect(() => {
-    // Create audio element
-    audioRef.current = new Audio();
-    
-    // Set up event listeners
-    const handleEnded = () => setIsPlaying(false);
-    const handleError = (e: Event) => {
-      console.error('Audio playback error:', e);
-      setIsPlaying(false);
-      setError('Audio playback failed. Try again.');
-      toast({
-        title: "Audio Error",
-        description: "Playback failed. Please try the play button.",
-        variant: "destructive"
-      });
-    };
-    
-    // Add event listeners
-    audioRef.current.addEventListener('ended', handleEnded);
-    audioRef.current.addEventListener('error', handleError);
-    
-    // Initialize AudioContext for better mobile support
-    try {
-      // @ts-ignore - for older browser compatibility
-      window.AudioContext = window.AudioContext || window.webkitAudioContext;
-      audioContextRef.current = new AudioContext();
-    } catch (e) {
-      console.error('Web Audio API is not supported in this browser', e);
-    }
-
-    // Cleanup function
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.src = '';
-        audioRef.current.removeEventListener('ended', handleEnded);
-        audioRef.current.removeEventListener('error', handleError);
-      }
-      
-      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-        audioContextRef.current.close().catch(console.error);
-      }
-    };
-  }, []);
-
-  // Check audio compatibility on mount
-  useEffect(() => {
-    const { supported, issues } = checkAudioCompatibility();
-    if (!supported) {
-      toast({
-        title: "Audio compatibility issues",
-        description: issues.join(', '),
-        variant: "destructive",
-      });
-    }
-    
-    // Unlock audio on iOS by creating and playing a silent buffer on user interaction
-    const unlockAudio = () => {
-      if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
-        audioContextRef.current.resume().catch(console.error);
-      }
-      
-      // Play and immediately pause the audio element to unlock it
-      if (audioRef.current) {
-        const playPromise = audioRef.current.play();
-        if (playPromise !== undefined) {
-          playPromise.then(() => {
-            audioRef.current?.pause();
-            audioRef.current!.currentTime = 0;
-          }).catch(e => {
-            console.log('Audio unlock failed:', e);
-          });
-        }
-      }
-      
-      // Remove listeners after first interaction
-      document.removeEventListener('touchstart', unlockAudio);
-      document.removeEventListener('touchend', unlockAudio);
-      document.removeEventListener('click', unlockAudio);
-    };
-    
-    // Add listeners for user interaction
-    document.addEventListener('touchstart', unlockAudio, { once: true });
-    document.addEventListener('touchend', unlockAudio, { once: true });
-    document.addEventListener('click', unlockAudio, { once: true });
-    
-    return () => {
-      document.removeEventListener('touchstart', unlockAudio);
-      document.removeEventListener('touchend', unlockAudio);
-      document.removeEventListener('click', unlockAudio);
-    };
-  }, []);
+  const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   // Reset state when starting a new scan
   const startNewScan = () => {
@@ -193,10 +100,8 @@ const QRCodeScanner: React.FC = () => {
         description: label.name,
       });
       
-      if (!isMuted) {
-        // Auto-play audio if not muted
-        playLabelAudio();
-      }
+      // Automatically play the audio
+      handlePlayAudio(label);
     } catch (err) {
       console.error('Error fetching label:', err);
       setError('Failed to fetch label');
@@ -206,84 +111,21 @@ const QRCodeScanner: React.FC = () => {
     }
   };
 
-  // Play the label audio
-  const playLabelAudio = async () => {
-    if (!currentLabel) return;
-    
+  // Handle playing audio for a label
+  const handlePlayAudio = async (label: any) => {
     try {
+      console.log("Attempting to play audio for label:", label.name);
       setIsPlaying(true);
       
-      // Make sure AudioContext is running (for iOS)
-      if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
-        await audioContextRef.current.resume();
-      }
-      
-      if (audioRef.current) {
-        // Stop any current playback
-        audioRef.current.pause();
-        audioRef.current.src = '';
-      }
-      
-      if (currentLabel.audioData) {
-        // Play recorded audio
-        console.log("Playing recorded audio for label:", currentLabel.name);
-        const audioBlob = base64ToBlob(currentLabel.audioData);
-        
-        // Create object URL for the blob
-        const audioUrl = URL.createObjectURL(audioBlob);
-        
-        if (audioRef.current) {
-          // Set properties first
-          audioRef.current.src = audioUrl;
-          audioRef.current.preload = 'auto';
-          
-          // Add oncanplay event to handle iOS audio issues
-          const playAudioWhenReady = () => {
-            console.log("Audio is ready to play");
-            const playPromise = audioRef.current?.play();
-            
-            if (playPromise) {
-              playPromise.catch(error => {
-                console.error("Play promise rejected:", error);
-                
-                // Create a play button that the user can tap to start playback
-                toast({
-                  title: "Tap to play",
-                  description: "Tap the play button to hear the audio",
-                  duration: 5000
-                });
-                
-                setIsPlaying(false);
-              });
-            }
-            
-            // Remove the listener after it fires once
-            audioRef.current?.removeEventListener('canplay', playAudioWhenReady);
-          };
-          
-          // Add the event listener
-          audioRef.current.addEventListener('canplay', playAudioWhenReady, { once: true });
-          
-          // Set onended to clean up URL object and update UI
-          audioRef.current.onended = () => {
-            setIsPlaying(false);
-            URL.revokeObjectURL(audioUrl);
-          };
-          
-          // Start loading the audio
-          audioRef.current.load();
-        }
-      } else if (currentLabel.content) {
-        // Use text-to-speech
-        console.log("Using text-to-speech for label:", currentLabel.name);
-        await textToSpeech(currentLabel.content);
+      await playLabelAudio(label, () => {
+        console.log("Audio playback completed");
         setIsPlaying(false);
-      }
-    } catch (err) {
-      console.error('Error playing label audio:', err);
-      setError('Tap the play button to hear the audio');
-      announceToScreenReader('Failed to play audio automatically. Please use the play button.', 'assertive');
+      });
+    } catch (error) {
+      console.error("Audio playback error:", error);
       setIsPlaying(false);
+      setError('Tap the play button to try again');
+      announceToScreenReader('Audio playback failed. Please try again.', 'assertive');
     }
   };
 
@@ -295,22 +137,9 @@ const QRCodeScanner: React.FC = () => {
     announceToScreenReader('Scanner error. Please try again.', 'assertive');
   };
 
-  // Toggle mute
-  const toggleMute = () => {
-    setIsMuted(!isMuted);
-    announceToScreenReader(isMuted ? 'Audio enabled' : 'Audio muted');
-  };
-
-  // Play the label again
-  const playLabelAgain = () => {
-    if (currentLabel) {
-      // Unlock audio context if needed (iOS requirement)
-      if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
-        audioContextRef.current.resume().catch(console.error);
-      }
-      
-      playLabelAudio();
-    }
+  // Navigate home
+  const goHome = () => {
+    navigate('/');
   };
 
   // Auto-restart scanning after a delay when error occurs
@@ -318,14 +147,14 @@ const QRCodeScanner: React.FC = () => {
     if (error) {
       const timer = setTimeout(() => {
         startNewScan();
-      }, 3000);
+      }, 5000);
       
       return () => clearTimeout(timer);
     }
   }, [error]);
 
   return (
-    <div className="w-full max-w-sm mx-auto">
+    <div className="w-full max-w-md mx-auto">
       <Card className="overflow-hidden shadow-sm">
         {scanning ? (
           <div className="relative">
@@ -355,57 +184,43 @@ const QRCodeScanner: React.FC = () => {
             ) : error ? (
               <div className="text-center space-y-4">
                 <p className="text-destructive font-semibold">{error}</p>
-                <Button onClick={startNewScan}>Try Again</Button>
+                <div className="flex flex-col gap-3 w-full">
+                  <Button onClick={startNewScan}>Try Again</Button>
+                  <Button variant="outline" onClick={goHome}>Go Home</Button>
+                </div>
               </div>
             ) : (
-              <div className="text-center space-y-6">
+              <div className="text-center space-y-6 w-full">
                 <div className="space-y-2">
                   <h3 className="text-xl font-semibold">Label Found</h3>
                   <p className="text-2xl font-bold text-primary">{labelName}</p>
                 </div>
                 
-                <div className="flex justify-center space-x-4">
+                <div className="flex flex-col gap-4 w-full">
                   {isPlaying ? (
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-12 w-12 rounded-full"
-                      onClick={() => {
-                        if (audioRef.current) {
-                          audioRef.current.pause();
-                          setIsPlaying(false);
-                        }
-                      }}
-                    >
-                      <Pause className="h-6 w-6" />
-                    </Button>
+                    <p className="text-primary font-medium animate-pulse">
+                      Playing audio...
+                    </p>
                   ) : (
                     <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-12 w-12 rounded-full"
-                      onClick={playLabelAgain}
+                      className="mx-auto"
+                      onClick={() => currentLabel && handlePlayAudio(currentLabel)}
                     >
-                      <Play className="h-6 w-6" />
+                      <Play className="h-5 w-5 mr-2" />
+                      Play Audio
                     </Button>
                   )}
                   
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-12 w-12 rounded-full"
-                    onClick={toggleMute}
-                  >
-                    {isMuted ? <VolumeX className="h-6 w-6" /> : <Volume2 className="h-6 w-6" />}
-                  </Button>
+                  <div className="flex flex-col gap-3 w-full mt-4">
+                    <Button onClick={startNewScan}>
+                      Scan Another Code
+                    </Button>
+                    <Button variant="outline" onClick={goHome}>
+                      <Home className="h-4 w-4 mr-2" />
+                      Go Home
+                    </Button>
+                  </div>
                 </div>
-                
-                <Button 
-                  className="w-full mt-4" 
-                  onClick={startNewScan}
-                >
-                  Scan Another Code
-                </Button>
               </div>
             )}
           </div>
