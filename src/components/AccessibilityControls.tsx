@@ -34,9 +34,9 @@ const AccessibilityControls = () => {
       const panel = document.querySelector('.accessibility-panel') as HTMLElement;
       if (panel) {
         if (window.innerWidth < 640) {
-          // Center on mobile
-          panel.style.right = '50%';
-          panel.style.transform = 'translateX(50%)';
+          // Right side on mobile
+          panel.style.right = '1rem';
+          panel.style.transform = 'none';
         } else {
           // Right side on desktop
           panel.style.right = '1rem';
@@ -93,7 +93,7 @@ const AccessibilityControls = () => {
   };
 
   return (
-    <div className={`fixed ${isMobile ? 'bottom-2 left-0 right-0 mx-auto w-fit' : 'bottom-4 right-4'} z-50 accessibility-panel`}>
+    <div className={`fixed ${isMobile ? 'bottom-4 right-4' : 'bottom-4 right-4'} z-50 accessibility-panel`}>
       <Collapsible open={isOpen} onOpenChange={setIsOpen} className="bg-card border rounded-lg shadow-lg">
         <CollapsibleTrigger asChild>
           <Button 
@@ -105,7 +105,7 @@ const AccessibilityControls = () => {
             <Eye className="h-6 w-6" />
           </Button>
         </CollapsibleTrigger>
-        <CollapsibleContent className={`p-3 space-y-3 ${isMobile ? 'max-w-[90vw] sm:max-w-sm' : ''}`}>
+        <CollapsibleContent className={`p-3 space-y-3 ${isMobile ? 'max-w-[90vw] w-[280px]' : ''}`}>
           <div aria-live="polite" className="sr-only">
             Accessibility controls expanded
           </div>

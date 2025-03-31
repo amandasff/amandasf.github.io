@@ -18,6 +18,7 @@ const QRCodeScanner: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [currentLabel, setCurrentLabel] = useState<any>(null);
+  const [playbackCompleted, setPlaybackCompleted] = useState<boolean>(false);
   const { toast } = useToast();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -28,7 +29,11 @@ const QRCodeScanner: React.FC = () => {
     audioRef.current = new Audio();
     
     // Set up event listeners
-    const handleEnded = () => setIsPlaying(false);
+    const handleEnded = () => {
+      setIsPlaying(false);
+      setPlaybackCompleted(true);
+    };
+    
     const handleError = (e: Event) => {
       console.error('Audio playback error:', e);
       setIsPlaying(false);
@@ -123,6 +128,7 @@ const QRCodeScanner: React.FC = () => {
     setLabelName(null);
     setIsPlaying(false);
     setCurrentLabel(null);
+    setPlaybackCompleted(false);
     setScanning(true);
     announceToScreenReader('Scanner activated, ready to scan QR codes');
   };
@@ -172,7 +178,7 @@ const QRCodeScanner: React.FC = () => {
     }
   };
 
-  // Fetch the label without playing
+  // Fetch the label and automatically play audio
   const fetchLabel = async (labelId: string) => {
     try {
       setIsLoading(true);
@@ -193,10 +199,11 @@ const QRCodeScanner: React.FC = () => {
         description: label.name,
       });
       
-      if (!isMuted) {
-        // Auto-play audio if not muted
+      // Always play audio automatically after finding a label
+      setTimeout(() => {
         playLabelAudio();
-      }
+      }, 500); // Small delay to ensure UI updates first
+      
     } catch (err) {
       console.error('Error fetching label:', err);
       setError('Failed to fetch label');
@@ -212,6 +219,8 @@ const QRCodeScanner: React.FC = () => {
     
     try {
       setIsPlaying(true);
+      setError(null); // Clear any previous error messages
+      setPlaybackCompleted(false);
       
       // Make sure AudioContext is running (for iOS)
       if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
@@ -271,6 +280,7 @@ const QRCodeScanner: React.FC = () => {
           // Set onended to clean up URL object and update UI
           audioRef.current.onended = () => {
             setIsPlaying(false);
+            setPlaybackCompleted(true);
             URL.revokeObjectURL(audioUrl);
           };
           
@@ -282,6 +292,7 @@ const QRCodeScanner: React.FC = () => {
         console.log("Using text-to-speech for label:", currentLabel.name);
         await textToSpeech(currentLabel.content);
         setIsPlaying(false);
+        setPlaybackCompleted(true);
       }
     } catch (err) {
       console.error('Error playing label audio:', err);
@@ -317,17 +328,6 @@ const QRCodeScanner: React.FC = () => {
     }
   };
 
-  // Auto-restart scanning after a delay when error occurs
-  useEffect(() => {
-    if (error) {
-      const timer = setTimeout(() => {
-        startNewScan();
-      }, 3000);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [error]);
-
   return (
     <div className="w-full max-w-sm mx-auto">
       <Card className="overflow-hidden shadow-sm">
@@ -351,7 +351,7 @@ const QRCodeScanner: React.FC = () => {
           </div>
         ) : (
           <div className="p-6 flex flex-col items-center justify-center min-h-[300px] relative">
-            {/* Close button - added to all states */}
+            {/* Close button - present in all states */}
             <Button 
               variant="ghost" 
               size="icon" 
