@@ -140,4 +140,47 @@
   .page-transition-exit-active {
     @apply opacity-0 transition-opacity duration-300;
   }
+  
+  /* High contrast mode styles */
+  .high-contrast-mode {
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
+    --card: 0 0% 0%;
+    --card-foreground: 0 0% 100%;
+    --primary: 60 100% 50%;
+    --primary-foreground: 0 0% 0%;
+    --border: 0 0% 100%;
+    --ring: 60 100% 50%;
+  }
+  
+  .high-contrast-mode * {
+    @apply !border-white;
+  }
+  
+  .high-contrast-mode a {
+    @apply underline font-bold;
+  }
+  
+  .high-contrast-mode button {
+    @apply border-2 border-white;
+  }
+  
+  /* Increase default spacing for better touch targets */
+  .focus-visible-enabled :focus-visible {
+    @apply outline outline-2 outline-offset-2 outline-primary;
+  }
+  
+  /* Improved interactive elements for accessibility */
+  .a11y-button {
+    @apply py-3 px-6 text-lg font-medium rounded-md min-h-[2.75rem] min-w-[2.75rem];
+  }
+  
+  .a11y-input {
+    @apply p-3 text-lg rounded-md min-h-[2.75rem];
+  }
+  
+  /* Styles for aria-current */
+  [aria-current="page"] {
+    @apply font-bold;
+  }
 }
