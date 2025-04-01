@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { QrReader } from 'react-qr-reader';
 import { Card } from '@/components/ui/card';
@@ -9,7 +8,11 @@ import { getLabelById } from '@/utils/storage';
 import { playAudio, base64ToBlob, textToSpeech, checkAudioCompatibility } from '@/utils/audio';
 import { announceToScreenReader, provideHapticFeedback } from '@/utils/accessibility';
 
-const QRCodeScanner: React.FC = () => {
+interface QRCodeScannerProps {
+  accessibilityMode?: boolean;
+}
+
+const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ accessibilityMode = false }) => {
   const [scanning, setScanning] = useState<boolean>(true);
   const [scanResult, setScanResult] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -21,7 +24,6 @@ const QRCodeScanner: React.FC = () => {
   const { toast } = useToast();
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Create an audio element on component mount
   useEffect(() => {
     audioRef.current = new Audio();
     audioRef.current.addEventListener('ended', () => {
@@ -33,7 +35,6 @@ const QRCodeScanner: React.FC = () => {
       setError('Audio playback failed. Try again.');
     });
 
-    // Cleanup function
     return () => {
       if (audioRef.current) {
         audioRef.current.pause();
@@ -43,7 +44,6 @@ const QRCodeScanner: React.FC = () => {
     };
   }, []);
 
-  // Check audio compatibility on mount
   useEffect(() => {
     const { supported, issues } = checkAudioCompatibility();
     if (!supported) {
@@ -53,9 +53,12 @@ const QRCodeScanner: React.FC = () => {
         variant: "destructive",
       });
     }
-  }, []);
+    
+    if (accessibilityMode) {
+      announceToScreenReader('Scanner ready. Accessibility features enabled.');
+    }
+  }, [accessibilityMode]);
 
-  // Reset state when starting a new scan
   const startNewScan = () => {
     setScanResult(null);
     setError(null);
@@ -63,14 +66,17 @@ const QRCodeScanner: React.FC = () => {
     setIsPlaying(false);
     setCurrentLabel(null);
     setScanning(true);
-    announceToScreenReader('Scanner activated, ready to scan QR codes');
+    
+    if (accessibilityMode) {
+      announceToScreenReader('Scanner activated with accessibility features enabled. Ready to scan QR codes.');
+    } else {
+      announceToScreenReader('Scanner activated, ready to scan QR codes');
+    }
   };
 
-  // Handle successful scan
   const handleScan = async (data: string | null) => {
     if (!data || !scanning) return;
     
-    // Parse the data from the QR code
     try {
       console.log("QR code data received:", data);
       let parsedData;
@@ -80,7 +86,6 @@ const QRCodeScanner: React.FC = () => {
       } catch (parseErr) {
         console.error("Failed to parse as JSON, trying alternative format");
         
-        // Handle potential string format differences
         const match = data.match(/labelId[":=\s]+([^",}\s]+)/i);
         if (match && match[1]) {
           parsedData = { labelId: match[1] };
@@ -99,19 +104,30 @@ const QRCodeScanner: React.FC = () => {
       console.log("Parsed label ID:", parsedData.labelId);
       setScanResult(parsedData.labelId);
       setScanning(false);
-      provideHapticFeedback();
       
-      // Get label from storage
+      if (accessibilityMode) {
+        provideHapticFeedback();
+        if ('vibrate' in navigator) {
+          navigator.vibrate([100, 100, 100]);
+        }
+      } else {
+        provideHapticFeedback();
+      }
+      
       await fetchLabel(parsedData.labelId);
     } catch (err) {
       console.error('Error parsing QR code data:', err);
       setError('Could not read QR code data');
       setScanning(false);
-      announceToScreenReader('Could not read QR code data', 'assertive');
+      
+      if (accessibilityMode) {
+        announceToScreenReader('Error reading QR code. Please try again with better lighting or positioning.', 'assertive');
+      } else {
+        announceToScreenReader('Could not read QR code data', 'assertive');
+      }
     }
   };
 
-  // Fetch the label without playing
   const fetchLabel = async (labelId: string) => {
     try {
       setIsLoading(true);
@@ -133,7 +149,6 @@ const QRCodeScanner: React.FC = () => {
       });
       
       if (!isMuted) {
-        // Auto-play audio if not muted
         playLabelAudio();
       }
     } catch (err) {
@@ -145,25 +160,25 @@ const QRCodeScanner: React.FC = () => {
     }
   };
 
-  // Play the label audio
   const playLabelAudio = async () => {
     if (!currentLabel) return;
     
     try {
+      if (accessibilityMode) {
+        announceToScreenReader('Playing audio for label: ' + currentLabel.name);
+      }
+      
       setIsPlaying(true);
       
       if (audioRef.current) {
-        // Stop any current playback
         audioRef.current.pause();
         audioRef.current.src = '';
       }
       
       if (currentLabel.audioData) {
-        // Play recorded audio
         console.log("Playing recorded audio for label:", currentLabel.name);
         const audioBlob = base64ToBlob(currentLabel.audioData);
         
-        // Create object URL for the blob
         const audioUrl = URL.createObjectURL(audioBlob);
         
         if (audioRef.current) {
@@ -189,7 +204,6 @@ const QRCodeScanner: React.FC = () => {
           };
         }
       } else if (currentLabel.content) {
-        // Use text-to-speech
         console.log("Using text-to-speech for label:", currentLabel.name);
         await textToSpeech(currentLabel.content);
         setIsPlaying(false);
@@ -202,7 +216,6 @@ const QRCodeScanner: React.FC = () => {
     }
   };
 
-  // Handle scanning errors
   const handleError = (err: Error) => {
     console.error('QR scanner error:', err);
     setError('Scanner error. Please try again.');
@@ -210,20 +223,17 @@ const QRCodeScanner: React.FC = () => {
     announceToScreenReader('Scanner error. Please try again.', 'assertive');
   };
 
-  // Toggle mute
   const toggleMute = () => {
     setIsMuted(!isMuted);
     announceToScreenReader(isMuted ? 'Audio enabled' : 'Audio muted');
   };
 
-  // Play the label again
   const playLabelAgain = () => {
     if (currentLabel) {
       playLabelAudio();
     }
   };
 
-  // Auto-restart scanning after a delay when error occurs
   useEffect(() => {
     if (error) {
       const timer = setTimeout(() => {
@@ -236,7 +246,7 @@ const QRCodeScanner: React.FC = () => {
 
   return (
     <div className="w-full max-w-sm mx-auto">
-      <Card className="overflow-hidden shadow-sm">
+      <Card className={`overflow-hidden shadow-sm ${accessibilityMode ? 'border-primary border-2' : ''}`}>
         {scanning ? (
           <div className="relative">
             <QrReader
@@ -250,10 +260,10 @@ const QRCodeScanner: React.FC = () => {
               containerStyle={{ width: '100%' }}
               scanDelay={500}
               ViewFinder={() => (
-                <div className="absolute inset-0 border-2 border-primary-500 opacity-70 rounded-lg" />
+                <div className={`absolute inset-0 border-2 ${accessibilityMode ? 'border-primary-500' : 'border-white/70'} opacity-70 rounded-lg`} />
               )}
             />
-            <div className="absolute inset-0 border-[3px] border-white/70 rounded-lg pointer-events-none" />
+            <div className={`absolute inset-0 border-[3px] ${accessibilityMode ? 'border-primary' : 'border-white/70'} rounded-lg pointer-events-none`} />
           </div>
         ) : (
           <div className="p-6 flex flex-col items-center justify-center min-h-[300px]">
@@ -323,6 +333,10 @@ const QRCodeScanner: React.FC = () => {
       </Card>
     </div>
   );
+};
+
+QRCodeScanner.defaultProps = {
+  accessibilityMode: false
 };
 
 export default QRCodeScanner;
