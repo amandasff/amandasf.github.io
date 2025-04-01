@@ -4,31 +4,26 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import Layout from "@/components/Layout";
 import Header from "@/components/Header";
-import { PlusCircle, Search, LayoutList, Tag, ChevronRight } from "lucide-react";
+import { PlusCircle, Search, LayoutList, Tag } from "lucide-react";
 import { motion } from "framer-motion";
 import { Label, getPremadeLabels } from "@/utils/storage";
 
 const Index = () => {
   const [premadeLabels, setPremadeLabels] = useState<Label[]>([]);
-  const [expandedLabels, setExpandedLabels] = useState(false);
 
   useEffect(() => {
     // Get pre-made labels and sort them numerically by ID
     const labels = getPremadeLabels();
     const sortedLabels = [...labels].sort((a, b) => {
-      // Extract numerical part from the ID (e.g., "premade-1" -> 1)
-      const numA = parseInt(a.id.split('-')[1]);
-      const numB = parseInt(b.id.split('-')[1]);
-      return numA - numB;
+      // Convert IDs to numbers for numerical sort
+      const idA = parseInt(a.id);
+      const idB = parseInt(b.id);
+      return idA - idB;
     });
     setPremadeLabels(sortedLabels);
   }, []);
-
-  // Display only the first 5 labels when collapsed
-  const displayedLabels = expandedLabels ? premadeLabels : premadeLabels.slice(0, 5);
 
   return (
     <Layout>
@@ -131,45 +126,27 @@ const Index = () => {
         
         {premadeLabels.length > 0 && (
           <div className="w-full max-w-sm mt-8">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Tag className="h-4 w-4 text-primary" />
-                <h3 className="font-semibold">Pre-made Labels</h3>
-              </div>
-              {premadeLabels.length > 5 && (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => setExpandedLabels(!expandedLabels)}
-                  className="text-xs"
-                >
-                  {expandedLabels ? "Show Less" : "Show All"}
-                </Button>
-              )}
+            <div className="flex items-center gap-2 mb-4">
+              <Tag className="h-4 w-4 text-primary" />
+              <h3 className="font-semibold">Pre-made Labels</h3>
             </div>
-            
             <Card className="overflow-hidden">
-              <ScrollArea className={`${expandedLabels ? 'max-h-96' : 'max-h-full'}`}>
-                <div className="p-4 space-y-2">
-                  {displayedLabels.map((label, index) => (
-                    <React.Fragment key={label.id}>
-                      <Link 
-                        to={`/create?edit=${label.id}`}
-                        className="block hover:bg-muted/30 rounded p-2 transition-colors"
-                      >
-                        <div className="flex justify-between items-center">
-                          <div className="flex items-center gap-2">
-                            <span className="text-primary font-medium text-sm">#{label.id.split('-')[1]}</span>
-                            <span className="font-medium">{label.name}</span>
-                          </div>
-                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                      </Link>
-                      {index < displayedLabels.length - 1 && <Separator className="my-1" />}
-                    </React.Fragment>
-                  ))}
-                </div>
-              </ScrollArea>
+              <div className="p-4 space-y-2">
+                {premadeLabels.map((label, index) => (
+                  <React.Fragment key={label.id}>
+                    <Link 
+                      to={`/create?edit=${label.id}`}
+                      className="block hover:bg-muted/30 rounded p-2 transition-colors"
+                    >
+                      <div className="flex justify-between items-center">
+                        <span className="font-medium">{label.name}</span>
+                        <span className="text-xs text-muted-foreground">{`#${label.id}`}</span>
+                      </div>
+                    </Link>
+                    {index < premadeLabels.length - 1 && <Separator className="my-1" />}
+                  </React.Fragment>
+                ))}
+              </div>
             </Card>
           </div>
         )}
