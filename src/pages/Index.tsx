@@ -17,10 +17,10 @@ const Index = () => {
     // Get pre-made labels and sort them numerically by ID
     const labels = getPremadeLabels();
     const sortedLabels = [...labels].sort((a, b) => {
-      // Convert IDs to numbers for numerical sort
-      const idA = parseInt(a.id);
-      const idB = parseInt(b.id);
-      return idA - idB;
+      // Extract the numeric part from the "premade-X" id format
+      const numA = parseInt(a.id.split('-')[1]);
+      const numB = parseInt(b.id.split('-')[1]);
+      return numA - numB;
     });
     setPremadeLabels(sortedLabels);
   }, []);
@@ -140,7 +140,7 @@ const Index = () => {
                     >
                       <div className="flex justify-between items-center">
                         <span className="font-medium">{label.name}</span>
-                        <span className="text-xs text-muted-foreground">{`#${label.id}`}</span>
+                        <span className="text-xs text-muted-foreground">{`#${label.id.split('-')[1]}`}</span>
                       </div>
                     </Link>
                     {index < premadeLabels.length - 1 && <Separator className="my-1" />}
