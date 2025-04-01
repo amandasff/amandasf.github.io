@@ -189,7 +189,8 @@ export const generatePrintablePDF = async (labels: Label[]): Promise<void> => {
     doc.text('6. The app will scan the code and play the associated audio', 20, guideY);
     guideY += lineHeight * 2;
     
-    doc.text('For best results:', 20, guideY, { fontStyle: 'bold' });
+    // Instead of using fontStyle, we'll just use regular text
+    doc.text('For best results:', 20, guideY);
     guideY += lineHeight;
     
     doc.text('• Ensure good lighting when scanning codes', 20, guideY);
