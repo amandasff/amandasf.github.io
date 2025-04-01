@@ -1,8 +1,10 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Home, PlusCircle, Search, LayoutList } from 'lucide-react';
+import { Home, PlusCircle, Search, LayoutList, Settings } from 'lucide-react';
+import AccessibilityMenu from './AccessibilityMenu';
+import { Button } from '@/components/ui/button';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -10,6 +12,7 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
+  const [accessibilityMenuOpen, setAccessibilityMenuOpen] = useState(false);
   
   const pageVariants = {
     initial: {
@@ -46,6 +49,23 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       >
         {children}
       </motion.main>
+      
+      {/* Accessibility button */}
+      <Button
+        variant="outline"
+        size="icon"
+        className="fixed top-4 right-4 h-10 w-10 rounded-full shadow-md z-50"
+        onClick={() => setAccessibilityMenuOpen(true)}
+        aria-label="Accessibility options"
+      >
+        <Settings className="h-5 w-5" />
+      </Button>
+      
+      {/* Accessibility Menu Dialog */}
+      <AccessibilityMenu
+        open={accessibilityMenuOpen}
+        onOpenChange={setAccessibilityMenuOpen}
+      />
       
       <nav className="fixed bottom-0 left-0 right-0 bg-background border-t border-border backdrop-blur-lg z-50">
         <div className="max-w-md mx-auto flex justify-around items-center h-16">

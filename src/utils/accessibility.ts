@@ -105,3 +105,48 @@ export const trapFocus = (element: HTMLElement): () => void => {
     element.removeEventListener('keydown', handleTabKey);
   };
 };
+
+// New function to toggle high contrast mode
+export const toggleHighContrast = (enabled: boolean): void => {
+  if (enabled) {
+    document.documentElement.classList.add('high-contrast');
+  } else {
+    document.documentElement.classList.remove('high-contrast');
+  }
+};
+
+// New function to toggle large text mode
+export const toggleLargeText = (enabled: boolean): void => {
+  if (enabled) {
+    document.documentElement.classList.add('large-text');
+  } else {
+    document.documentElement.classList.remove('large-text');
+  }
+};
+
+// New function to save accessibility preferences
+export const saveAccessibilityPreferences = (preferences: AccessibilityPreferences): void => {
+  localStorage.setItem('accessibilityPreferences', JSON.stringify(preferences));
+};
+
+// New function to load accessibility preferences
+export const loadAccessibilityPreferences = (): AccessibilityPreferences => {
+  const saved = localStorage.getItem('accessibilityPreferences');
+  if (saved) {
+    return JSON.parse(saved);
+  }
+  return {
+    highContrast: false,
+    largeText: false,
+    voiceCommands: false,
+    textToSpeech: false
+  };
+};
+
+// Accessibility preferences type
+export interface AccessibilityPreferences {
+  highContrast: boolean;
+  largeText: boolean;
+  voiceCommands: boolean;
+  textToSpeech: boolean;
+}

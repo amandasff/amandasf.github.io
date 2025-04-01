@@ -83,6 +83,37 @@
     --sidebar-border: 240 4% 16%;
     --sidebar-ring: 217 91% 60%;
   }
+
+  /* High contrast mode */
+  .high-contrast {
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
+    
+    --card: 0 0% 0%;
+    --card-foreground: 0 0% 100%;
+    
+    --popover: 0 0% 0%;
+    --popover-foreground: 0 0% 100%;
+    
+    --primary: 60 100% 50%;
+    --primary-foreground: 0 0% 0%;
+    
+    --secondary: 0 0% 10%;
+    --secondary-foreground: 0 0% 100%;
+    
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 80%;
+    
+    --accent: 0 0% 20%;
+    --accent-foreground: 0 0% 100%;
+    
+    --destructive: 0 100% 50%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --border: 0 0% 40%;
+    --input: 0 0% 30%;
+    --ring: 60 100% 50%;
+  }
 }
 
 @layer base {
@@ -103,6 +134,40 @@
   /* Improve tap targets for mobile */
   button, a, input, select, textarea {
     @apply touch-manipulation;
+  }
+  
+  /* Large text mode */
+  .large-text {
+    font-size: 120%;
+    line-height: 1.5;
+  }
+  
+  .large-text h1 {
+    font-size: 2.2em;
+  }
+  
+  .large-text h2 {
+    font-size: 1.8em;
+  }
+  
+  .large-text h3 {
+    font-size: 1.5em;
+  }
+  
+  .large-text p, .large-text span, .large-text button, .large-text a {
+    font-size: 1.2em;
+  }
+  
+  /* High contrast focus states */
+  .high-contrast :focus-visible {
+    outline: 3px solid var(--primary);
+    outline-offset: 2px;
+  }
+  
+  /* High contrast links */
+  .high-contrast a:not(.btn) {
+    text-decoration: underline;
+    text-underline-offset: 3px;
   }
 }
 

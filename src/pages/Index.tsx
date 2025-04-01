@@ -14,9 +14,15 @@ const Index = () => {
   const [premadeLabels, setPremadeLabels] = useState<Label[]>([]);
 
   useEffect(() => {
-    // Get pre-made labels
+    // Get pre-made labels and sort them numerically by ID
     const labels = getPremadeLabels();
-    setPremadeLabels(labels);
+    const sortedLabels = [...labels].sort((a, b) => {
+      // Convert IDs to numbers for numerical sort
+      const idA = parseInt(a.id);
+      const idB = parseInt(b.id);
+      return idA - idB;
+    });
+    setPremadeLabels(sortedLabels);
   }, []);
 
   return (
