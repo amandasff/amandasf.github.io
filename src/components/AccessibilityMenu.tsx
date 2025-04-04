@@ -1,4 +1,5 @@
-
+// Accessibility menu for our project
+// This helps make our website easier to use
 import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -15,29 +16,32 @@ import {
 } from "@/utils/accessibility";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Eye, Mic, Speaker, RotateCcw, Check } from "lucide-react";
+import { Eye, Mic, Speaker, RotateCcw } from "lucide-react";
 
+// Props for our menu
 interface AccessibilityMenuProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
 const AccessibilityMenu: React.FC<AccessibilityMenuProps> = ({ open, onOpenChange }) => {
+  // Load saved settings
   const [preferences, setPreferences] = useState<AccessibilityPreferences>(loadAccessibilityPreferences());
   const { toast } = useToast();
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Apply preferences when component mounts or preferences change
+  // Apply settings when page loads or changes
   useEffect(() => {
+    // Change colors for better visibility
     toggleHighContrast(preferences.highContrast);
+    // Make text bigger if needed
     toggleLargeText(preferences.largeText);
     
-    // Save preferences to localStorage
+    // Save settings
     saveAccessibilityPreferences(preferences);
     
-    // Handle voice commands setup
-    let cleanupVoiceCommands: undefined | (() => void);
+    // Set up voice commands if enabled
     if (preferences.voiceCommands) {
       const commands = {
         "go to home": () => navigate("/"),
@@ -49,28 +53,18 @@ const AccessibilityMenu: React.FC<AccessibilityMenuProps> = ({ open, onOpenChang
       
       try {
         setupVoiceCommands(commands);
-        toast({
-          title: "Voice commands activated",
-          description: "Try saying: 'go to home', 'go to scan', etc."
-        });
       } catch (error) {
-        console.error("Failed to set up voice commands", error);
+        console.error('Error setting up voice commands:', error);
         toast({
-          title: "Voice commands failed",
-          description: "Please check microphone permissions",
+          title: "Error",
+          description: "Couldn't set up voice commands",
           variant: "destructive"
         });
-        // Reset the preference if it fails
-        setPreferences(prev => ({ ...prev, voiceCommands: false }));
       }
     }
-    
-    return () => {
-      if (cleanupVoiceCommands) cleanupVoiceCommands();
-    };
   }, [preferences, navigate]);
 
-  // Function to reset preferences
+  // Reset all settings to default
   const resetPreferences = () => {
     const defaultPreferences: AccessibilityPreferences = {
       highContrast: false,
@@ -78,104 +72,108 @@ const AccessibilityMenu: React.FC<AccessibilityMenuProps> = ({ open, onOpenChang
       voiceCommands: false,
       textToSpeech: false
     };
+    
     setPreferences(defaultPreferences);
+    saveAccessibilityPreferences(defaultPreferences);
+    
+    // Tell user settings were reset
     toast({
-      title: "Settings reset",
-      description: "Accessibility settings have been reset to defaults"
+      title: "Settings Reset",
+      description: "All accessibility settings have been reset to default",
     });
+    
+    // Say it out loud if text to speech is on
+    if (preferences.textToSpeech) {
+      speak("Settings have been reset to default");
+    }
   };
 
-  // Handle preference changes
+  // Change a setting
   const handlePreferenceChange = (key: keyof AccessibilityPreferences, value: boolean) => {
-    setPreferences(prev => ({ ...prev, [key]: value }));
+    const newPreferences = { ...preferences, [key]: value };
+    setPreferences(newPreferences);
     
-    // Provide immediate feedback
-    if (key === 'highContrast') {
-      toast({
-        title: value ? "High contrast enabled" : "High contrast disabled"
-      });
-    } else if (key === 'largeText') {
-      toast({
-        title: value ? "Large text enabled" : "Large text disabled"
-      });
-    } else if (key === 'textToSpeech' && value) {
-      speak("Text to speech is now enabled");
+    // Tell user about the change
+    const message = `${key} ${value ? 'enabled' : 'disabled'}`;
+    toast({
+      title: "Setting Changed",
+      description: message,
+    });
+    
+    // Say it out loud if text to speech is on
+    if (preferences.textToSpeech) {
+      speak(message);
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent>
         <DialogHeader>
-          <DialogTitle className="text-xl">Accessibility Settings</DialogTitle>
+          <DialogTitle>Accessibility Settings</DialogTitle>
         </DialogHeader>
         
-        <div className="space-y-6 py-4">
+        <div className="space-y-4">
+          {/* High Contrast Mode */}
           <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="high-contrast" className="text-base">High Contrast</Label>
-              <p className="text-sm text-muted-foreground">Enhance visual distinction between elements</p>
-            </div>
+            <Label htmlFor="highContrast" className="flex items-center gap-2">
+              <Eye className="h-4 w-4" />
+              High Contrast Mode
+            </Label>
             <Switch
-              id="high-contrast"
+              id="highContrast"
               checked={preferences.highContrast}
               onCheckedChange={(checked) => handlePreferenceChange('highContrast', checked)}
             />
           </div>
           
+          {/* Large Text Mode */}
           <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="large-text" className="text-base">Large Text</Label>
-              <p className="text-sm text-muted-foreground">Increase text size for better readability</p>
-            </div>
+            <Label htmlFor="largeText" className="flex items-center gap-2">
+              <Speaker className="h-4 w-4" />
+              Large Text Mode
+            </Label>
             <Switch
-              id="large-text"
+              id="largeText"
               checked={preferences.largeText}
               onCheckedChange={(checked) => handlePreferenceChange('largeText', checked)}
             />
           </div>
           
+          {/* Voice Commands */}
           <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="voice-commands" className="text-base">Voice Commands</Label>
-              <p className="text-sm text-muted-foreground">Control the app with your voice</p>
-            </div>
+            <Label htmlFor="voiceCommands" className="flex items-center gap-2">
+              <Mic className="h-4 w-4" />
+              Voice Commands
+            </Label>
             <Switch
-              id="voice-commands"
+              id="voiceCommands"
               checked={preferences.voiceCommands}
               onCheckedChange={(checked) => handlePreferenceChange('voiceCommands', checked)}
             />
           </div>
           
+          {/* Text to Speech */}
           <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="text-to-speech" className="text-base">Text to Speech</Label>
-              <p className="text-sm text-muted-foreground">Read screen content aloud</p>
-            </div>
+            <Label htmlFor="textToSpeech" className="flex items-center gap-2">
+              <Speaker className="h-4 w-4" />
+              Text to Speech
+            </Label>
             <Switch
-              id="text-to-speech"
+              id="textToSpeech"
               checked={preferences.textToSpeech}
               onCheckedChange={(checked) => handlePreferenceChange('textToSpeech', checked)}
             />
           </div>
-        </div>
-        
-        <div className="flex justify-between mt-6">
+          
+          {/* Reset Button */}
           <Button
             variant="outline"
             onClick={resetPreferences}
-            className="flex items-center gap-2"
+            className="w-full gap-2"
           >
             <RotateCcw className="h-4 w-4" />
-            Reset
-          </Button>
-          
-          <Button 
-            onClick={() => onOpenChange(false)}
-            className="flex items-center gap-2"
-          >
-            <Check className="h-4 w-4" />
-            Done
+            Reset All Settings
           </Button>
         </div>
       </DialogContent>
