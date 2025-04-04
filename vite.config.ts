@@ -1,6 +1,7 @@
 // Vite configuration file
 // Basic setup for web development
 // Optimizes build and development process
+// FINAL
 
 // Required imports for configuration
 import { defineConfig } from "vite";
