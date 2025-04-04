@@ -1,279 +1,161 @@
-
-import React, { useState, useRef, useEffect } from 'react';
+// Audio recorder for our project
+// This is our first time working with audio in React
+import React, { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import { Mic, Square, Play, Loader2 } from 'lucide-react';
-import { startRecording, stopRecording, playAudio, blobToBase64 } from '@/utils/audio';
-import { announceToScreenReader, provideHapticFeedback } from '@/utils/accessibility';
+import { Card, CardContent } from '@/components/ui/card';
+import { Mic, Square, Play } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
+// Props for our component
 interface AudioRecorderProps {
   onAudioRecorded: (audioData: string) => void;
-  initialAudioData?: string | undefined;
 }
 
-const AudioRecorder: React.FC<AudioRecorderProps> = ({ onAudioRecorded, initialAudioData }) => {
+const AudioRecorder: React.FC<AudioRecorderProps> = ({ onAudioRecorded }) => {
+  // Basic state for our recorder
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
 
+  // Refs to store our audio stuff
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const timerRef = useRef<number | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
-  // Initialize with initialAudioData if provided
-  useEffect(() => {
-    if (initialAudioData) {
-      try {
-        // Create a data URL from the base64 string
-        const dataUrl = `data:audio/mpeg;base64,${initialAudioData}`;
-        
-        // Fetch the data and convert to blob
-        fetch(dataUrl)
-          .then(response => response.blob())
-          .then(blob => {
-            setAudioBlob(blob);
-            console.log('Successfully loaded initial audio data');
-          })
-          .catch(error => {
-            console.error('Error converting initialAudioData to blob:', error);
-          });
-      } catch (error) {
-        console.error('Error processing initialAudioData:', error);
-      }
-    }
-  }, [initialAudioData]);
-
-  // Create audio element for playback
-  useEffect(() => {
-    audioRef.current = new Audio();
-    
-    return () => {
-      // Cleanup
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.src = '';
-      }
-    };
-  }, []);
-
-  // Start recording
+  // Start recording function
   const handleStartRecording = async () => {
     try {
-      setIsProcessing(true);
-      announceToScreenReader('Starting recording');
+      // Get permission to use microphone
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       
-      // Reset state
-      setAudioBlob(null);
-      setRecordingTime(0);
+      // Create recorder
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      
+      // Reset chunks
+      audioChunksRef.current = [];
+      
+      // Save audio data when available
+      mediaRecorder.ondataavailable = (event) => {
+        audioChunksRef.current.push(event.data);
+      };
+      
+      // When recording stops, save the audio
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/mpeg' });
+        setAudioBlob(audioBlob);
+        
+        // Convert to base64 for saving
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = () => {
+          const base64 = reader.result as string;
+          onAudioRecorded(base64.split(',')[1]);
+        };
+      };
       
       // Start recording
-      const recorder = await startRecording();
-      mediaRecorderRef.current = recorder;
-      
+      mediaRecorder.start();
       setIsRecording(true);
-      provideHapticFeedback();
+      setRecordingTime(0);
       
       // Start timer
       timerRef.current = window.setInterval(() => {
-        setRecordingTime((prev) => prev + 1);
+        setRecordingTime(prev => prev + 1);
       }, 1000);
       
-      announceToScreenReader('Recording started');
     } catch (error) {
       console.error('Error starting recording:', error);
       toast({
-        title: "Recording Error",
-        description: "Could not access microphone. Please check permissions.",
+        title: "Error",
+        description: "Couldn't access microphone",
         variant: "destructive"
       });
-      announceToScreenReader('Could not start recording', 'assertive');
-    } finally {
-      setIsProcessing(false);
     }
   };
 
   // Stop recording
-  const handleStopRecording = async () => {
-    if (!mediaRecorderRef.current) return;
-    
-    try {
-      setIsProcessing(true);
-      announceToScreenReader('Stopping recording');
+  const handleStopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
       
       // Stop timer
       if (timerRef.current) {
         clearInterval(timerRef.current);
-        timerRef.current = null;
       }
-      
-      // Stop recording
-      const blob = await stopRecording(mediaRecorderRef.current);
-      setAudioBlob(blob);
-      
-      // Convert to base64 and notify parent
-      const base64 = await blobToBase64(blob);
-      onAudioRecorded(base64);
-      
-      setIsRecording(false);
-      provideHapticFeedback();
-      
-      announceToScreenReader('Recording finished');
-    } catch (error) {
-      console.error('Error stopping recording:', error);
-      toast({
-        title: "Recording Error",
-        description: "Failed to save recording.",
-        variant: "destructive"
-      });
-      announceToScreenReader('Error stopping recording', 'assertive');
-    } finally {
-      setIsProcessing(false);
     }
   };
 
-  // Play recorded audio with improved mobile support
-  const handlePlayRecording = async () => {
-    if (!audioBlob) return;
-    
-    try {
-      setIsPlaying(true);
-      announceToScreenReader('Playing recording');
-      
-      console.log('Attempting to play audio blob:', audioBlob.type, audioBlob.size);
-      
-      // Create new URL for the blob
+  // Play the recording
+  const handlePlayAudio = () => {
+    if (audioBlob) {
       const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      audio.play();
+      setIsPlaying(true);
       
-      if (audioRef.current) {
-        // Set up event handlers for this play attempt
-        const audio = audioRef.current;
-        
-        const playPromise = new Promise<void>((resolve, reject) => {
-          audio.onended = () => {
-            console.log('Audio playback ended');
-            resolve();
-          };
-          
-          audio.onerror = (e) => {
-            console.error('Audio playback error:', e);
-            reject(e);
-          };
-          
-          // Set source and attempt to play
-          audio.src = audioUrl;
-          audio.load();
-          
-          // Mobile browsers require user interaction
-          const playAttempt = audio.play();
-          
-          if (playAttempt !== undefined) {
-            playAttempt
-              .then(() => console.log('Playback started'))
-              .catch(e => {
-                console.error('Playback failed to start:', e);
-                reject(e);
-              });
-          }
-        });
-        
-        await playPromise;
-        
-        // Clean up
-        URL.revokeObjectURL(audioUrl);
+      audio.onended = () => {
         setIsPlaying(false);
-      } else {
-        throw new Error('Audio element not available');
-      }
-    } catch (error) {
-      console.error('Error playing recording:', error);
-      toast({
-        title: "Playback Error",
-        description: "Could not play recording. Try again or re-record.",
-        variant: "destructive"
-      });
-      announceToScreenReader('Could not play recording', 'assertive');
-      setIsPlaying(false);
+        URL.revokeObjectURL(audioUrl);
+      };
     }
   };
 
-  // Format time (seconds to MM:SS)
-  const formatTime = (timeInSeconds: number): string => {
-    const minutes = Math.floor(timeInSeconds / 60);
-    const seconds = timeInSeconds % 60;
-    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  // Format time for display
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   return (
-    <Card className="p-6 shadow-sm">
-      <div className="flex flex-col items-center gap-6">
-        <div className="flex justify-center items-center w-full gap-3">
-          <div className="text-lg font-medium w-16 text-center">
-            {formatTime(recordingTime)}
+    <Card>
+      <CardContent className="p-4">
+        <div className="space-y-4">
+          {/* Recording button */}
+          <div className="flex items-center justify-between">
+            <Button
+              variant={isRecording ? "destructive" : "default"}
+              onClick={isRecording ? handleStopRecording : handleStartRecording}
+              className="gap-2"
+            >
+              {isRecording ? (
+                <Square className="h-4 w-4" />
+              ) : (
+                <Mic className="h-4 w-4" />
+              )}
+              <span>
+                {isRecording ? "Stop" : "Record"}
+              </span>
+            </Button>
+            
+            {/* Show time */}
+            {isRecording && (
+              <div className="text-sm text-muted-foreground">
+                {formatTime(recordingTime)}
+              </div>
+            )}
           </div>
-          
-          <Progress 
-            value={isRecording ? (recordingTime % 60) * (100 / 60) : 0} 
-            className="flex-1" 
-          />
-        </div>
-        
-        <div className="flex justify-center items-center gap-4">
-          {isRecording ? (
-            <Button
-              variant="destructive"
-              size="icon"
-              className="h-16 w-16 rounded-full shadow-md"
-              onClick={handleStopRecording}
-              disabled={isProcessing}
-            >
-              {isProcessing ? (
-                <Loader2 className="h-8 w-8 animate-spin" />
-              ) : (
-                <Square className="h-8 w-8" />
-              )}
-            </Button>
-          ) : (
-            <Button
-              variant="default"
-              size="icon"
-              className="h-16 w-16 rounded-full shadow-md bg-primary hover:bg-primary/90"
-              onClick={handleStartRecording}
-              disabled={isProcessing}
-            >
-              {isProcessing ? (
-                <Loader2 className="h-8 w-8 animate-spin" />
-              ) : (
-                <Mic className="h-8 w-8" />
-              )}
-            </Button>
-          )}
-          
+
+          {/* Play button */}
           {audioBlob && !isRecording && (
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-12 w-12 rounded-full"
-              onClick={handlePlayRecording}
-              disabled={isPlaying || isProcessing}
-            >
-              <Play className="h-6 w-6" />
-            </Button>
+            <div className="flex items-center justify-between">
+              <Button
+                variant="outline"
+                onClick={handlePlayAudio}
+                disabled={isPlaying}
+                className="gap-2"
+              >
+                <Play className="h-4 w-4" />
+                <span>Play</span>
+              </Button>
+            </div>
           )}
         </div>
-        
-        <p className="text-sm text-muted-foreground text-center">
-          {isRecording 
-            ? 'Recording... Tap the square button to stop.' 
-            : audioBlob 
-              ? 'Recording complete. Tap the microphone to record again.' 
-              : 'Tap the microphone button to start recording.'}
-        </p>
-      </div>
+      </CardContent>
     </Card>
   );
 };
